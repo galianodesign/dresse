@@ -1,0 +1,439 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Jost", system-ui, sans-serif;
+}
+
+/* ─── Tema Signature (gratuito, por defecto) ─── */
+:root,
+[data-theme="signature"] {
+  --bg: #faf8f4;
+  --surface: #ffffff;
+  --ink: #1a1714;
+  --muted: #8a8177;
+  --accent: #a8896b;
+  --accent-soft: #efe7db;
+  --line: #e8e2d8;
+}
+
+/* ─── Temas premium ─── */
+[data-theme="paris"] {
+  --bg: #fdf9f7;
+  --surface: #ffffff;
+  --ink: #3d2e2e;
+  --muted: #b09a95;
+  --accent: #cf8f9a;
+  --accent-soft: #f9ecec;
+  --line: #ecd6d6;
+}
+[data-theme="milano"] {
+  --bg: #121212;
+  --surface: #1d1d1f;
+  --ink: #f2f2f0;
+  --muted: #8e8e93;
+  --accent: #c0c0c8;
+  --accent-soft: #2a2a2e;
+  --line: #2e2e32;
+}
+[data-theme="riviera"] {
+  --bg: #f6fafc;
+  --surface: #ffffff;
+  --ink: #1e3442;
+  --muted: #7fa3b5;
+  --accent: #3f9fd0;
+  --accent-soft: #e3f1f8;
+  --line: #c9e2f0;
+}
+[data-theme="tokio"] {
+  --bg: #fbf8fe;
+  --surface: #ffffff;
+  --ink: #3a2d4a;
+  --muted: #a996c2;
+  --accent: #b678e0;
+  --accent-soft: #f5ebfc;
+  --line: #e2cff5;
+}
+[data-theme="londres"] {
+  --bg: #f7f8f4;
+  --surface: #ffffff;
+  --ink: #232920;
+  --muted: #8d9683;
+  --accent: #7c9a67;
+  --accent-soft: #eaf0e3;
+  --line: #d5e0c6;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Etiqueta de boutique: el elemento distintivo de Dressé */
+.hang-tag {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px 4px 12px 12px;
+}
+.hang-tag::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ─── Patrones de fondo distintivos por tema ─── */
+/* Signature: limpio, boutique minimalista */
+[data-theme="signature"] body { background-image: none; }
+
+/* Paris: rejilla de rombos rosa palo, como papel de sombrerera */
+[data-theme="paris"] body {
+  background-image:
+    linear-gradient(45deg, var(--line) 1px, transparent 1px),
+    linear-gradient(-45deg, var(--line) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Milano: textura de seda oscura, brillos diagonales sutilísimos */
+[data-theme="milano"] body {
+  background-image:
+    linear-gradient(180deg, #17171a 0%, #121212 260px),
+    repeating-linear-gradient(
+      135deg,
+      transparent 0px,
+      transparent 6px,
+      rgba(255, 255, 255, 0.012) 6px,
+      rgba(255, 255, 255, 0.012) 12px
+    );
+}
+
+/* Riviera: rayas marineras horizontales finas */
+[data-theme="riviera"] body {
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0px,
+    transparent 34px,
+    var(--line) 34px,
+    var(--line) 35px
+  );
+}
+
+/* Tokio: seigaiha, las ondas japonesas clásicas */
+[data-theme="tokio"] body {
+  background-image: radial-gradient(
+    circle at 50% 125%,
+    transparent 10px,
+    var(--line) 11px,
+    transparent 12px
+  );
+  background-size: 28px 14px;
+}
+
+/* Londres: tweed, cuadrícula irregular de sastrería inglesa */
+[data-theme="londres"] body {
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px),
+    linear-gradient(var(--accent-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-soft) 1px, transparent 1px);
+  background-size: 34px 34px, 34px 34px, 8.5px 8.5px, 8.5px 8.5px;
+}
+
+/* Pétalos de sakura cayendo (tema Tokio) */
+@keyframes petal-fall {
+  0% { transform: translateY(-4vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(106vh) rotate(280deg); opacity: 0.15; }
+}
+.petal {
+  top: -20px;
+  animation-name: petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* ─── Detalles de interfaz ─── */
+.chip {
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  padding: 6px 16px;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.chip[data-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.btn-primary {
+  width: 100%;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 14px 0;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-primary:active { transform: scale(0.985); }
+.btn-primary:disabled { opacity: 0.4; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+/* Animación sutil de entrada */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.35s ease both; }
+
+/* Grid tipo Pinterest para la comunidad */
+.masonry {
+  column-count: 2;
+  column-gap: 12px;
+}
+.masonry > * {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+
+/* Burbujas de mar subiendo (tema Riviera) */
+@keyframes bubble-rise {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  10% { opacity: 0.7; }
+  100% { transform: translateY(-108vh) scale(1.15); opacity: 0; }
+}
+.bubble {
+  bottom: -20px;
+  animation-name: bubble-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* ─── Marcos de tarjeta de prenda distintivos por tema ─── */
+[data-theme="paris"] .hang-tag {
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--line);
+}
+[data-theme="milano"] .hang-tag {
+  border-radius: 2px;
+  border-color: var(--accent);
+  border-width: 1px;
+}
+[data-theme="milano"] .hang-tag::before {
+  border-radius: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+[data-theme="riviera"] .hang-tag {
+  border-bottom-width: 3px;
+  border-bottom-color: var(--accent);
+}
+[data-theme="tokio"] .hang-tag {
+  border-radius: 18px;
+  border-style: dashed;
+}
+[data-theme="londres"] .hang-tag {
+  border-width: 1px;
+  box-shadow: inset 0 0 0 1px var(--bg), inset 0 0 0 2px var(--line);
+}
+
+/* ─── Navegación inferior con identidad del tema ─── */
+.navbar-themed {
+  border-top: 1px solid var(--line);
+}
+[data-theme="milano"] .navbar-themed { border-top-color: var(--accent); }
+[data-theme="riviera"] .navbar-themed {
+  border-top: none;
+  background-image: radial-gradient(
+    circle at 50% -6px,
+    transparent 8px,
+    var(--line) 9px,
+    transparent 10px
+  );
+  background-size: 22px 11px;
+  background-repeat: repeat-x;
+}
+
+/* Barras del gráfico de categorías */
+.stat-bar {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--accent);
+  transition: width 0.6s ease;
+}
+
+/* ═══ Feedback táctil y transiciones profesionales ═══ */
+
+/* Todos los botones responden al tacto */
+button {
+  transition: transform 0.12s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+button:active { transform: scale(0.955); }
+
+/* Entrada de página: fade en el contenedor (sin transform, para no romper
+   los elementos position:fixed como la barra de navegación) y slide en los
+   bloques internos marcados con .rise */
+@keyframes page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+main {
+  animation: page-in 0.28s ease both;
+}
+
+/* Modales que suben con efecto muelle */
+@keyframes sheet-up {
+  0% { transform: translateY(100%); }
+  70% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+.sheet {
+  animation: sheet-up 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.overlay {
+  animation: overlay-in 0.2s ease both;
+}
+
+/* Corazón que late al dar like */
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.heart-pop { animation: heart-pop 0.35s ease; }
+
+/* Toast de confirmación */
+@keyframes toast-in {
+  0% { opacity: 0; transform: translate(-50%, 16px) scale(0.9); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  88% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(0.95); }
+}
+.toast {
+  position: fixed;
+  bottom: 88px;
+  left: 50%;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9999px;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 10px 20px;
+  font-size: 13px;
+  animation: toast-in 1.8s ease both;
+  pointer-events: none;
+}
+@keyframes check-draw {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+.toast svg path {
+  stroke-dasharray: 24;
+  animation: check-draw 0.4s 0.1s ease both;
+}
+
+/* Splash screen de arranque */
+@keyframes splash-out {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes splash-logo {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  40%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  animation: splash-out 1.5s ease both;
+  pointer-events: none;
+}
+.splash > * { animation: splash-logo 0.9s ease both; }
+
+/* ═══ Modo oscuro para todos los temas ═══ */
+[data-mode="dark"][data-theme="signature"] {
+  --bg: #191613; --surface: #232019; --ink: #f2ede5;
+  --muted: #9c9284; --accent: #c2a380; --accent-soft: #33291f; --line: #363028;
+}
+[data-mode="dark"][data-theme="paris"] {
+  --bg: #221a1a; --surface: #2c2222; --ink: #f7ecec;
+  --muted: #b39a96; --accent: #e0b0b0; --accent-soft: #3d2c2c; --line: #423232;
+}
+[data-mode="dark"][data-theme="riviera"] {
+  --bg: #101d26; --surface: #182835; --ink: #ecf5fa;
+  --muted: #83a4b6; --accent: #86c3e2; --accent-soft: #1e3444; --line: #26404f;
+}
+[data-mode="dark"][data-theme="tokio"] {
+  --bg: #1e1727; --surface: #291f35; --ink: #f6eefc;
+  --muted: #a894c0; --accent: #d3a8ec; --accent-soft: #382a49; --line: #3e2f52;
+}
+[data-mode="dark"][data-theme="londres"] {
+  --bg: #171b14; --surface: #21261d; --ink: #f0f4ea;
+  --muted: #94a08a; --accent: #a8bd96; --accent-soft: #2b3325; --line: #333c2c;
+}
+/* Milano ya es oscuro de serie: en modo oscuro se mantiene igual */
+
+/* Los patrones de fondo con gradientes fijos se apagan en oscuro para no ensuciar */
+[data-mode="dark"][data-theme="milano"] body { background-image: none; }
+
+/* ═══ Legibilidad: base tipográfica mayor ═══ */
+html { font-size: 17px; }
+
+/* Los modales contienen su propio scroll sin arrastrar el fondo */
+.sheet { overscroll-behavior: contain; }
+.overlay { overscroll-behavior: contain; }
+
+/* Botón de cerrar visible y con el color del tema */
+.btn-cerrar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  width: 42px;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--surface);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  border: 2px solid var(--surface);
+}
