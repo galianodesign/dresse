@@ -127,7 +127,7 @@ function aMascara(pred: Float32Array, ancho: number, alto: number): ImageData {
 }
 
 export interface ResultadoRecorte {
-  /** dataURL JPEG de la prenda sobre el fondo elegido */
+  /** dataURL JPEG: la prenda compuesta como foto de catálogo */
   imagen: string;
   /** Milisegundos que tardó solo la inferencia */
   msInferencia: number;
@@ -136,17 +136,76 @@ export interface ResultadoRecorte {
    * detectar recortes absurdos: si sale casi 0 o casi 1, no se ha enterado.
    */
   cobertura: number;
+  /** Si se pudo dibujar la sombra (depende del navegador) */
+  conSombra: boolean;
+}
+
+export interface OpcionesRecorte {
+  /** Color de fondo. Por defecto un gris muy claro, tipo catálogo. */
+  fondo?: string;
+  /** Lado del cuadrado de salida en píxeles */
+  lado?: number;
+  /** Margen alrededor de la prenda, como fracción del lado (0-0.4) */
+  margen?: number;
+  /** Dibujar la sombra suave bajo la prenda */
+  sombra?: boolean;
+}
+
+/** ¿Soporta este navegador el desenfoque de canvas? (Safari solo desde 16.4) */
+function soportaDesenfoque(ctx: CanvasRenderingContext2D): boolean {
+  try {
+    ctx.filter = "blur(2px)";
+    const ok = ctx.filter !== "none" && ctx.filter !== "";
+    ctx.filter = "none";
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Caja mínima que contiene la prenda, según la máscara */
+function calcularCaja(mascara: ImageData, w: number, h: number) {
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  let suma = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const a = mascara.data[(y * w + x) * 4];
+      suma += a / 255;
+      if (a > 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  return { minX, minY, maxX, maxY, cobertura: suma / (w * h) };
 }
 
 /**
- * Recorta el fondo de una foto y devuelve la prenda sobre un color liso.
+ * Recorta el fondo y compone la prenda como una foto de catálogo: centrada
+ * en un cuadrado, con el mismo margen siempre, sombra suave y fondo neutro.
+ *
+ * Lo que esto NO hace: quitar arrugas ni dar volumen a la prenda. Eso solo
+ * lo consigue una foto bien hecha (o IA generativa, que cuesta dinero).
+ *
  * Lanza excepción si el modelo no carga; quien llame debe quedarse con la
  * foto original en ese caso.
  */
 export async function recortarFondo(
   dataUrl: string,
-  fondo = "#f0ede8"
+  opciones: OpcionesRecorte = {}
 ): Promise<ResultadoRecorte> {
+  const {
+    fondo = "#f2f1ef",
+    lado = 900,
+    margen = 0.09,
+    sombra = true,
+  } = opciones;
+
   const sesion = await cargarSesion();
   const ort = await cargarOrt();
 
@@ -164,36 +223,82 @@ export async function recortarFondo(
 
   // U^2-Net expone varias salidas (d0..d6); la primera es la buena
   const pred = salida[sesion.outputNames[0]] as Tensor;
-  const mascara = aMascara(pred.data as Float32Array, img.width, img.height);
+  const W = img.width;
+  const H = img.height;
+  const mascara = aMascara(pred.data as Float32Array, W, H);
+  const caja = calcularCaja(mascara, W, H);
 
-  // Componer: fondo liso + prenda recortada
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(img, 0, 0);
-  const original = ctx.getImageData(0, 0, img.width, img.height);
-
-  const [fr, fg, fb] = hexARgb(fondo);
-  let suma = 0;
-  for (let i = 0; i < original.data.length; i += 4) {
-    const a = mascara.data[i] / 255;
-    suma += a;
-    original.data[i] = Math.round(original.data[i] * a + fr * (1 - a));
-    original.data[i + 1] = Math.round(original.data[i + 1] * a + fg * (1 - a));
-    original.data[i + 2] = Math.round(original.data[i + 2] * a + fb * (1 - a));
-    original.data[i + 3] = 255;
+  // Sin prenda detectable: devolver la foto tal cual sobre el fondo, para que
+  // quien llame lo vea en "cobertura" y decida quedarse con la original.
+  if (caja.maxX < 0) {
+    return {
+      imagen: dataUrl,
+      msInferencia,
+      cobertura: caja.cobertura,
+      conSombra: false,
+    };
   }
-  ctx.putImageData(original, 0, 0);
+
+  // ── Recorte a la caja de la prenda, con transparencia ──
+  const cw = caja.maxX - caja.minX + 1;
+  const ch = caja.maxY - caja.minY + 1;
+  const recorte = document.createElement("canvas");
+  recorte.width = cw;
+  recorte.height = ch;
+  const ctxRecorte = recorte.getContext("2d", { willReadFrequently: true })!;
+  ctxRecorte.drawImage(img, -caja.minX, -caja.minY);
+  const px = ctxRecorte.getImageData(0, 0, cw, ch);
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) {
+      const dest = (y * cw + x) * 4;
+      const orig = ((y + caja.minY) * W + (x + caja.minX)) * 4;
+      px.data[dest + 3] = mascara.data[orig];
+    }
+  }
+  ctxRecorte.putImageData(px, 0, 0);
+
+  // ── Composición final: cuadrado, centrado, mismo margen siempre ──
+  const salidaCanvas = document.createElement("canvas");
+  salidaCanvas.width = lado;
+  salidaCanvas.height = lado;
+  const ctx = salidaCanvas.getContext("2d")!;
+  ctx.fillStyle = fondo;
+  ctx.fillRect(0, 0, lado, lado);
+
+  const disponible = lado * (1 - 2 * margen);
+  const escala = Math.min(disponible / cw, disponible / ch);
+  const dw = cw * escala;
+  const dh = ch * escala;
+  const dx = (lado - dw) / 2;
+  const dy = (lado - dh) / 2;
+
+  // Sombra: la silueta de la prenda, desenfocada y desplazada hacia abajo.
+  // Es lo que más aporta la sensación de "foto de producto".
+  let conSombra = false;
+  if (sombra && soportaDesenfoque(ctx)) {
+    const silueta = document.createElement("canvas");
+    silueta.width = cw;
+    silueta.height = ch;
+    const ctxSil = silueta.getContext("2d")!;
+    ctxSil.drawImage(recorte, 0, 0);
+    ctxSil.globalCompositeOperation = "source-in";
+    ctxSil.fillStyle = "#2a2724";
+    ctxSil.fillRect(0, 0, cw, ch);
+
+    ctx.save();
+    ctx.filter = `blur(${Math.round(lado * 0.022)}px)`;
+    ctx.globalAlpha = 0.26;
+    ctx.drawImage(silueta, dx, dy + lado * 0.02, dw, dh);
+    ctx.restore();
+    conSombra = true;
+  }
+
+  ctx.drawImage(recorte, dx, dy, dw, dh);
 
   return {
-    imagen: canvas.toDataURL("image/jpeg", 0.9),
+    imagen: salidaCanvas.toDataURL("image/jpeg", 0.9),
     msInferencia,
-    cobertura: suma / (img.width * img.height),
+    cobertura: caja.cobertura,
+    conSombra,
   };
-}
-
-function hexARgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.replace("#", ""), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
