@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import PerfilPublico from "@/components/PerfilPublico";
 import { useLockScroll } from "@/lib/useLockScroll";
+import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
 import BottomNav from "@/components/BottomNav";
 import ThemePicker from "@/components/ThemePicker";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
@@ -665,7 +666,7 @@ export default function Perfil() {
       {panel === "ajustes" && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setPanel(null)}>
           <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Ajustes</h2>
+            <CabeceraPanel titulo="Ajustes" onCerrar={() => setPanel(null)} />
             <div className="mt-4 space-y-1">
               <button onClick={abrirEditar} className="flex w-full items-center justify-between rounded-xl px-3 py-3.5 text-left text-sm hover:bg-bg">
                 Editar perfil <span className="text-muted">›</span>
@@ -747,7 +748,7 @@ export default function Perfil() {
       {panel === "editar" && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setPanel(null)}>
           <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Editar perfil</h2>
+            <CabeceraPanel titulo="Editar perfil" onCerrar={() => setPanel(null)} />
             <div className="mt-4 space-y-3">
               <button
                 onClick={() => fotoPerfilRef.current?.click()}
@@ -800,7 +801,10 @@ export default function Perfil() {
       {panel === "tema" && (
         <div className="overlay fixed inset-0 z-50 overflow-y-auto bg-ink/40" onClick={() => setPanel(null)}>
           <div className="sheet mx-auto mt-16 max-w-md rounded-t-[28px] bg-surface p-6 pb-28" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Tema de tu boutique</h2>
+            <CabeceraPanel
+              titulo="Tema de tu boutique"
+              onCerrar={() => setPanel(null)}
+            />
             <div className="mt-4">
               <ThemePicker onUpgrade={() => setPanel("plan")} />
             </div>
@@ -811,7 +815,11 @@ export default function Perfil() {
       {/* ── Plan / Premium ── */}
       {panel === "plan" && (
         <div className="overlay fixed inset-0 z-50 overflow-y-auto bg-ink/50 backdrop-blur-sm" onClick={() => setPanel(null)}>
-          <div className="sheet mx-auto mt-12 max-w-md rounded-t-[28px] bg-bg px-5 pb-28 pt-6" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet relative mx-auto mt-12 max-w-md rounded-t-[28px] bg-bg px-5 pb-28 pt-6" onClick={(e) => e.stopPropagation()}>
+            <BotonCerrar
+              onClick={() => setPanel(null)}
+              className="absolute right-4 top-4"
+            />
             <div className="text-center">
               <p className="text-xs uppercase tracking-[0.35em] text-muted">Dressé</p>
               <h2 className="mt-1 font-display text-4xl">Premium</h2>
@@ -889,7 +897,7 @@ export default function Perfil() {
       {panel === "publicar" && (
         <div className="overlay fixed inset-0 z-50 overflow-y-auto bg-ink/40" onClick={() => setPanel(null)}>
           <div className="sheet mx-auto mt-16 max-w-md rounded-t-[28px] bg-surface p-6 pb-28" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Publicar outfit</h2>
+            <CabeceraPanel titulo="Publicar outfit" onCerrar={() => setPanel(null)} />
 
             <input
               ref={pubCamRef}
@@ -995,7 +1003,10 @@ export default function Perfil() {
       {listaAbierta && (
         <div className="overlay fixed inset-0 z-[70] flex items-end bg-ink/40" onClick={() => setListaAbierta(null)}>
           <div className="sheet max-h-[70vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">{listaAbierta.titulo}</h2>
+            <CabeceraPanel
+              titulo={listaAbierta.titulo}
+              onCerrar={() => setListaAbierta(null)}
+            />
             <div className="mt-4 space-y-2">
               {listaAbierta.gente.length === 0 && (
                 <p className="text-sm text-muted">Nadie por aquí todavía.</p>

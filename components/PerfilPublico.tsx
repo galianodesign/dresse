@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
 import { getTheme } from "@/lib/themes";
 import { Flourish } from "@/components/ThemeDecor";
+import { CabeceraPanel } from "@/components/BotonCerrar";
 import { useLockScroll } from "@/lib/useLockScroll";
 
 interface Datos {
@@ -218,7 +219,7 @@ export default function PerfilPublico({
         {lista && (
           <div className="overlay fixed inset-0 z-[90] flex items-end bg-ink/40" onClick={() => setLista(null)}>
             <div className="sheet max-h-[70vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-              <h2 className="font-display text-2xl">{lista.titulo}</h2>
+              <CabeceraPanel titulo={lista.titulo} onCerrar={() => setLista(null)} />
               <div className="mt-4 space-y-2">
                 {lista.gente.length === 0 && <p className="text-sm text-muted">Nadie por aquí todavía.</p>}
                 {lista.gente.map((g) => (

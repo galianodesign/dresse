@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
 import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
@@ -481,7 +482,11 @@ export default function Comunidad() {
       {/* Perfil público */}
       {perfilAbierto && (
         <div className="overlay fixed inset-0 z-[60] overflow-y-auto bg-ink/50 backdrop-blur-sm" onClick={() => setPerfilAbierto(null)}>
-          <div className="sheet mx-auto mt-16 max-w-md rounded-t-[28px] bg-bg px-5 pb-28 pt-6" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet relative mx-auto mt-16 max-w-md rounded-t-[28px] bg-bg px-5 pb-28 pt-6" onClick={(e) => e.stopPropagation()}>
+            <BotonCerrar
+              onClick={() => setPerfilAbierto(null)}
+              className="absolute right-4 top-4 z-10"
+            />
             {(() => {
               const p = perfilAbierto;
               const esYo = user?.id === p.id;
@@ -624,7 +629,10 @@ export default function Comunidad() {
       {listaAbierta && (
         <div className="overlay fixed inset-0 z-[70] flex items-end bg-ink/40" onClick={() => setListaAbierta(null)}>
           <div className="sheet max-h-[70vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">{listaAbierta.titulo}</h2>
+            <CabeceraPanel
+              titulo={listaAbierta.titulo}
+              onCerrar={() => setListaAbierta(null)}
+            />
             <div className="mt-4 space-y-2">
               {listaAbierta.gente.length === 0 && (
                 <p className="text-sm text-muted">Nadie por aquí todavía.</p>
@@ -658,7 +666,10 @@ export default function Comunidad() {
       {guardarAbierto && abierto && (
         <div className="overlay fixed inset-0 z-[75] flex items-end bg-ink/40" onClick={() => setGuardarAbierto(false)}>
           <div className="sheet max-h-[70vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Guardar en…</h2>
+            <CabeceraPanel
+              titulo="Guardar en…"
+              onCerrar={() => setGuardarAbierto(false)}
+            />
             <div className="mt-4 space-y-2">
               {tableros.map((tb) => {
                 const dentro = enTableros.includes(tb.id);

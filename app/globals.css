@@ -325,21 +325,22 @@ main {
   animation: page-in 0.28s ease both;
 }
 
-/* Modales que suben con efecto muelle */
+/* Paneles que suben desde abajo.
+   Sin rebote a propósito: el muelle que había antes (se pasaba 6px y volvía)
+   desentonaba con la sobriedad del resto del diseño. Ahora solo desacelera. */
 @keyframes sheet-up {
-  0% { transform: translateY(100%); }
-  70% { transform: translateY(-6px); }
-  100% { transform: translateY(0); }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 .sheet {
-  animation: sheet-up 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  animation: sheet-up 0.46s cubic-bezier(0.22, 0.61, 0.24, 1) both;
 }
 @keyframes overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 .overlay {
-  animation: overlay-in 0.2s ease both;
+  animation: overlay-in 0.28s ease both;
 }
 
 /* Corazón que late al dar like */

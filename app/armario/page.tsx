@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
 import BottomNav from "@/components/BottomNav";
 import GuiaPrimerosPasos from "@/components/GuiaPrimerosPasos";
 import Header from "@/components/Header";
@@ -523,7 +524,10 @@ export default function Armario() {
       {eligiendo && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setEligiendo(false)}>
           <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">{tx("fotoTitulo")}</h2>
+            <CabeceraPanel
+              titulo={tx("fotoTitulo")}
+              onCerrar={() => setEligiendo(false)}
+            />
 
             {/* Instrucciones en el paso obligatorio: para llegar a la cámara
                 hay que pasar por aquí, así que nadie se las salta. */}
@@ -581,7 +585,10 @@ export default function Armario() {
             ) : (
               nueva && (
                 <>
-                  <h2 className="font-display text-2xl">Nueva prenda</h2>
+                  <CabeceraPanel
+                    titulo="Nueva prenda"
+                    onCerrar={() => setNueva(null)}
+                  />
 
                   {/* Vista previa. Si hubo recorte, se puede volver a la
                       foto original: el modelo falla con prendas claras sobre
@@ -655,7 +662,7 @@ export default function Armario() {
       {detalle && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setDetalle(null)}>
           <div className="sheet max-h-[88vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <div className="flex h-44 items-center justify-center overflow-hidden rounded-2xl bg-accentSoft">
+            <div className="relative flex h-44 items-center justify-center overflow-hidden rounded-2xl bg-accentSoft">
               {detalle.imagen ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={detalle.imagen} alt={detalle.nombre} className="h-full w-full object-cover" />
@@ -664,6 +671,10 @@ export default function Armario() {
                   <path d="M16 4l4 3-2 3-2-1v11H8V9L6 10 4 7l4-3a3 3 0 004 0 3 3 0 004 0z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
+              <BotonCerrar
+                onClick={() => setDetalle(null)}
+                className="absolute right-3 top-3"
+              />
             </div>
 
             <div className="mt-4 flex items-center gap-2">
@@ -750,10 +761,14 @@ export default function Armario() {
       {creandoLook && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setCreandoLook(false)}>
           <div className="sheet max-h-[88vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Crear look</h2>
-            <p className="mt-1 text-sm text-muted">
-              Elige al menos 2 prendas y ponle nombre.
-            </p>
+            <CabeceraPanel
+              titulo="Crear look"
+              onCerrar={() => setCreandoLook(false)}
+            >
+              <p className="mt-1 text-sm text-muted">
+                Elige al menos 2 prendas y ponle nombre.
+              </p>
+            </CabeceraPanel>
 
             <input
               value={lookNombre}
