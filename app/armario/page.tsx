@@ -9,6 +9,7 @@ import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import Toast from "@/components/Toast";
 import { useStore } from "@/lib/store";
 import { CATEGORIAS, Categoria, Prenda, Look, diasSinUsar } from "@/lib/data";
+import { t, ClaveTexto } from "@/lib/i18n";
 
 const LIMITE_GRATIS = 20;
 const DIAS_OLVIDO = 30;
@@ -35,6 +36,11 @@ export default function Armario() {
   const [toast, setToast] = useState("");
   const [nueva, setNueva] = useState<Prenda | null>(null);
   const [analizando, setAnalizando] = useState(false);
+  // Las dos versiones de la foto, para que la usuaria pueda quedarse con la
+  // suya si el recorte automático no le convence.
+  const [originalFoto, setOriginalFoto] = useState<string | null>(null);
+  const [fotoLimpia, setFotoLimpia] = useState<string | null>(null);
+  const [usarOriginal, setUsarOriginal] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
   const [detalle, setDetalle] = useState<Prenda | null>(null);
   const [creandoLook, setCreandoLook] = useState(false);
@@ -105,29 +111,55 @@ export default function Armario() {
   }, [prendas]);
 
   const limiteAlcanzado = !perfil.premium && prendas.length >= LIMITE_GRATIS;
+  const tx = (clave: ClaveTexto) => t(perfil.idioma, clave);
 
   async function onFoto(file: File) {
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
       setAnalizando(true);
-      let sugerencia = { nombre: "", categoria: "top" as Categoria, color: "", estilo: "" };
-      try {
-        const res = await fetch("/api/asesor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ modo: "catalogar", imagen: dataUrl }),
-        });
-        if (res.ok) sugerencia = { ...sugerencia, ...(await res.json()) };
-      } catch {}
+      setOriginalFoto(dataUrl);
+      setUsarOriginal(false);
+
+      // Catalogar y limpiar la foto van EN PARALELO: las dos tardan unos
+      // segundos, así que la espera es la de la más lenta, no la suma.
+      // Madame Dressé analiza la foto original a propósito: los colores y
+      // detalles reales son los suyos, no los de una imagen ya procesada.
+      const catalogar = (async () => {
+        try {
+          const res = await fetch("/api/asesor", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ modo: "catalogar", imagen: dataUrl }),
+          });
+          if (res.ok) return await res.json();
+        } catch {}
+        return {};
+      })();
+
+      const limpiar = (async () => {
+        try {
+          const { recortarFondo } = await import("@/lib/recorteFondo");
+          const r = await recortarFondo(dataUrl);
+          // Cobertura absurda = el modelo no ha encontrado la prenda.
+          // Mejor la foto original que un recorte sin sentido.
+          if (r.cobertura < 0.01 || r.cobertura > 0.97) return null;
+          return r.imagen;
+        } catch {
+          return null; // sin conexión, navegador antiguo, etc.
+        }
+      })();
+
+      const [sugerencia, limpia] = await Promise.all([catalogar, limpiar]);
       setAnalizando(false);
+      setFotoLimpia(limpia);
       setNueva({
         id: `p${Date.now()}`,
         nombre: sugerencia.nombre || "Nueva prenda",
         categoria: sugerencia.categoria || "top",
         color: sugerencia.color || "—",
         estilo: sugerencia.estilo || perfil.estilo || "—",
-        imagen: dataUrl,
+        imagen: limpia || dataUrl,
         ultimoUso: new Date().toISOString(),
       });
     };
@@ -491,7 +523,29 @@ export default function Armario() {
       {eligiendo && (
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => setEligiendo(false)}>
           <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-display text-2xl">Añadir prenda</h2>
+            <h2 className="font-display text-2xl">{tx("fotoTitulo")}</h2>
+
+            {/* Instrucciones en el paso obligatorio: para llegar a la cámara
+                hay que pasar por aquí, así que nadie se las salta. */}
+            <div className="mt-4 rounded-2xl bg-accentSoft p-4">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-muted">
+                {tx("fotoGuiaTitulo")}
+              </p>
+              <ol className="mt-2.5 space-y-2">
+                {[tx("fotoGuia1"), tx("fotoGuia2"), tx("fotoGuia3")].map((linea, i) => (
+                  <li key={i} className="flex gap-2.5 text-sm leading-snug">
+                    <span className="mt-[2px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-bg">
+                      {i + 1}
+                    </span>
+                    <span>{linea}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-3 text-[12px] leading-snug text-muted">
+                {tx("fotoGuiaNota")}
+              </p>
+            </div>
+
             <div className="mt-4 space-y-2">
               <button
                 onClick={() => {
@@ -500,7 +554,7 @@ export default function Armario() {
                 }}
                 className="btn-primary"
               >
-                Hacer una foto
+                {tx("fotoHacer")}
               </button>
               <button
                 onClick={() => {
@@ -509,7 +563,7 @@ export default function Armario() {
                 }}
                 className="w-full rounded-2xl border border-line bg-bg py-3.5 text-sm tracking-wide"
               >
-                Elegir de la galería
+                {tx("fotoGaleria")}
               </button>
             </div>
           </div>
@@ -521,11 +575,45 @@ export default function Armario() {
         <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => !analizando && setNueva(null)}>
           <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
             {analizando ? (
-              <p className="py-10 text-center text-sm text-muted">Analizando tu prenda…</p>
+              <p className="py-10 text-center text-sm text-muted">
+                Analizando tu prenda…
+              </p>
             ) : (
               nueva && (
                 <>
                   <h2 className="font-display text-2xl">Nueva prenda</h2>
+
+                  {/* Vista previa. Si hubo recorte, se puede volver a la
+                      foto original: el modelo falla con prendas claras sobre
+                      fondo claro y no queremos obligarla a tragar con ello. */}
+                  {(fotoLimpia || originalFoto) && (
+                    <div className="mt-4">
+                      <div className="overflow-hidden rounded-2xl bg-accentSoft">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={(usarOriginal ? originalFoto : fotoLimpia) || originalFoto || ""}
+                          alt=""
+                          className="mx-auto block max-h-52 w-auto"
+                        />
+                      </div>
+                      {fotoLimpia && (
+                        <button
+                          onClick={() => {
+                            const siguiente = !usarOriginal;
+                            setUsarOriginal(siguiente);
+                            setNueva({
+                              ...nueva,
+                              imagen: siguiente ? originalFoto : fotoLimpia,
+                            });
+                          }}
+                          className="mt-2 w-full py-1.5 text-[12px] uppercase tracking-[0.16em] text-muted underline underline-offset-4"
+                        >
+                          {usarOriginal ? tx("fotoUsarLimpia") : tx("fotoUsarOriginal")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mt-4 space-y-3">
                     <input
                       value={nueva.nombre}

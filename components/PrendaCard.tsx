@@ -5,7 +5,10 @@ import { Prenda } from "@/lib/data";
 export default function PrendaCard({ prenda }: { prenda: Prenda }) {
   return (
     <div className="hang-tag overflow-hidden pt-5">
-      <div className="mx-3 flex h-28 items-center justify-center overflow-hidden rounded-md bg-accentSoft">
+      {/* Cuadrada: las fotos se componen en cuadrado, y la franja apaisada
+          anterior se comía media prenda. Las fotos antiguas se recortan al
+          centro, que es lo menos malo sin volver a procesarlas. */}
+      <div className="mx-3 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-accentSoft">
         {prenda.imagen ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={prenda.imagen} alt={prenda.nombre} className="h-full w-full object-cover" />

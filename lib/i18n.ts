@@ -47,6 +47,22 @@ export const TEXTOS = {
     guiaPaso3Ayuda: "Te dice si comprarte algo o qué ponerte hoy.",
     guiaOcultar: "Ocultar guía",
     guiaCompletado: "completado",
+
+    /* ── Cómo hacer la foto de una prenda ── */
+    fotoTitulo: "Añadir prenda",
+    fotoGuiaTitulo: "Para que quede bien",
+    fotoGuia1: "Extiéndela sobre una superficie lisa y de color plano.",
+    fotoGuia2: "Luz de ventana, sin flash y sin tu sombra encima.",
+    fotoGuia3: "La prenda entera en el encuadre, vista desde arriba.",
+    fotoGuiaNota:
+      "Dressé le quita el fondo y la centra sola, pero no puede quitar arrugas: eso depende de tu foto.",
+    fotoHacer: "Hacer una foto",
+    fotoGaleria: "Elegir de la galería",
+    fotoLimpiando: "Dejando la foto limpia…",
+    fotoVersionLimpia: "Versión limpia",
+    fotoVersionOriginal: "Tu foto original",
+    fotoUsarOriginal: "Prefiero mi foto original",
+    fotoUsarLimpia: "Usar la versión limpia",
   },
   en: {
     armario: "Wardrobe", asesor: "Advisor", comunidad: "Community", perfil: "Profile",
@@ -93,6 +109,22 @@ export const TEXTOS = {
     guiaPaso3Ayuda: "She'll tell you what to buy or what to wear today.",
     guiaOcultar: "Hide guide",
     guiaCompletado: "done",
+
+    /* ── How to photograph a garment ── */
+    fotoTitulo: "Add a piece",
+    fotoGuiaTitulo: "To get a good result",
+    fotoGuia1: "Lay it flat on a smooth, plain-coloured surface.",
+    fotoGuia2: "Window light — no flash, and keep your shadow out of it.",
+    fotoGuia3: "The whole piece in frame, shot from above.",
+    fotoGuiaNota:
+      "Dressé removes the background and centres it for you, but it can't iron out creases — that part is down to your photo.",
+    fotoHacer: "Take a photo",
+    fotoGaleria: "Choose from gallery",
+    fotoLimpiando: "Cleaning up your photo…",
+    fotoVersionLimpia: "Cleaned up",
+    fotoVersionOriginal: "Your original photo",
+    fotoUsarOriginal: "I prefer my original photo",
+    fotoUsarLimpia: "Use the cleaned-up version",
   },
 } as const;
 
