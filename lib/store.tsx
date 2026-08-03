@@ -71,6 +71,8 @@ const DEFAULT_PERFIL: Perfil = {
   nombre: "",
   estilo: "",
   premium: false,
+  // Siempre true hasta que la base de datos diga lo contrario: así la
+  // bienvenida no puede aparecer de golpe mientras el perfil aún carga.
   onboarded: true,
   username: "",
   bio: "",
@@ -234,17 +236,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (cancelado) return;
 
-      // Si el perfil no existe (fallo del trigger en el registro), crearlo
+      // Si el perfil no existe (fallo del trigger en el registro), crearlo.
+      // Se relee la fila creada para quedarnos con los valores por defecto
+      // reales de la base de datos (entre ellos onboarded).
       if (!pf.data) {
         const base = (user!.email || "dresse").split("@")[0];
         const username =
           base.toLowerCase().replace(/[^a-z0-9]/g, "") + uid.slice(0, 4);
-        await supabase.from("perfiles").insert({
-          id: uid,
-          nombre: base,
-          username,
-        });
-        pf.data = { id: uid, nombre: base, username } as any;
+        const { data: creado } = await supabase
+          .from("perfiles")
+          .insert({ id: uid, nombre: base, username })
+          .select()
+          .single();
+        pf.data = creado ?? ({ id: uid, nombre: base, username } as any);
       }
 
       if (pf.data) {
@@ -252,7 +256,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           nombre: pf.data.nombre || "",
           estilo: pf.data.estilo || "",
           premium: !!pf.data.premium,
-          onboarded: true,
+          // Si la columna aún no existe en Supabase llega undefined: se asume
+          // true y la bienvenida sencillamente no se muestra.
+          onboarded: pf.data.onboarded ?? true,
           username: pf.data.username || "",
           bio: pf.data.bio || "",
           foto: pf.data.foto_url,
@@ -331,6 +337,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (p.nombre !== undefined) cambios.nombre = p.nombre;
       if (p.estilo !== undefined) cambios.estilo = p.estilo;
       if (p.premium !== undefined) cambios.premium = p.premium;
+      if (p.onboarded !== undefined) cambios.onboarded = p.onboarded;
       if (p.username !== undefined) cambios.username = p.username;
       if (p.bio !== undefined) cambios.bio = p.bio;
       if (p.notificaciones !== undefined) cambios.notificaciones = p.notificaciones;

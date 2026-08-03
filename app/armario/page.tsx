@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import BottomNav from "@/components/BottomNav";
+import GuiaPrimerosPasos from "@/components/GuiaPrimerosPasos";
 import Header from "@/components/Header";
 import PrendaCard from "@/components/PrendaCard";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
@@ -161,6 +162,18 @@ export default function Armario() {
         subtitulo={`${prendas.length} prendas · ${looks.length} looks${!perfil.premium ? ` · ${Math.max(0, LIMITE_GRATIS - prendas.length)} libres en tu plan` : ""}`}
       />
 
+      {/* Guía de primeros pasos: desaparece sola al completar los tres */}
+      {vista === "prendas" && (
+        <GuiaPrimerosPasos
+          onAnadirPrenda={() => setEligiendo(true)}
+          onCrearLook={() => {
+            setCreandoLook(true);
+            setLookSel([]);
+            setLookNombre("");
+          }}
+        />
+      )}
+
       {/* Aviso de prenda olvidada */}
       {olvidada && vista === "prendas" && (
         <button
@@ -226,25 +239,28 @@ export default function Armario() {
 
       {vista === "prendas" && (
         <>
-          {/* Buscador */}
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, color o estilo…"
-            className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-accent"
-          />
+          {/* Buscador y filtros: con el armario vacío solo estorban */}
+          {prendas.length > 0 && (
+            <>
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre, color o estilo…"
+                className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-accent"
+              />
 
-          {/* Filtros por categoría */}
-          <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-            <button onClick={() => setFiltro("todas")} className="chip" data-active={filtro === "todas"}>
-              Todas
-            </button>
-            {CATEGORIAS.map((c) => (
-              <button key={c.id} onClick={() => setFiltro(c.id)} className="chip" data-active={filtro === c.id}>
-                {c.label}
-              </button>
-            ))}
-          </div>
+              <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+                <button onClick={() => setFiltro("todas")} className="chip" data-active={filtro === "todas"}>
+                  Todas
+                </button>
+                {CATEGORIAS.map((c) => (
+                  <button key={c.id} onClick={() => setFiltro(c.id)} className="chip" data-active={filtro === c.id}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Filtro combinado: estilo + color */}
           {(estilosUnicos.length > 1 || coloresUnicos.length > 1) && (
@@ -284,36 +300,38 @@ export default function Armario() {
           )}
 
           {/* Ordenar + cambiar vista */}
-          <div className="mb-4 flex items-center gap-2">
-            <select
-              value={orden}
-              onChange={(e) => setOrden(e.target.value as typeof orden)}
-              className="flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-xs outline-none"
-            >
-              <option value="recientes">Más recientes</option>
-              <option value="olvidadas">Más olvidadas</option>
-              <option value="color">Por color (A-Z)</option>
-              <option value="nombre">Por nombre (A-Z)</option>
-            </select>
-            <button
-              onClick={() => setModoVista(modoVista === "grid" ? "lista" : "grid")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-surface"
-              aria-label="Cambiar vista"
-            >
-              {modoVista === "grid" ? (
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <rect x="4" y="4" width="7" height="7" rx="1.5" />
-                  <rect x="13" y="4" width="7" height="7" rx="1.5" />
-                  <rect x="4" y="13" width="7" height="7" rx="1.5" />
-                  <rect x="13" y="13" width="7" height="7" rx="1.5" />
-                </svg>
-              )}
-            </button>
-          </div>
+          {prendas.length > 0 && (
+            <div className="mb-4 flex items-center gap-2">
+              <select
+                value={orden}
+                onChange={(e) => setOrden(e.target.value as typeof orden)}
+                className="flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-xs outline-none"
+              >
+                <option value="recientes">Más recientes</option>
+                <option value="olvidadas">Más olvidadas</option>
+                <option value="color">Por color (A-Z)</option>
+                <option value="nombre">Por nombre (A-Z)</option>
+              </select>
+              <button
+                onClick={() => setModoVista(modoVista === "grid" ? "lista" : "grid")}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-surface"
+                aria-label="Cambiar vista"
+              >
+                {modoVista === "grid" ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="4" y="4" width="7" height="7" rx="1.5" />
+                    <rect x="13" y="4" width="7" height="7" rx="1.5" />
+                    <rect x="4" y="13" width="7" height="7" rx="1.5" />
+                    <rect x="13" y="13" width="7" height="7" rx="1.5" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
 
           {modoVista === "grid" ? (
             <div className="grid grid-cols-2 gap-3">

@@ -3,6 +3,7 @@ import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { ThemeAmbience } from "@/components/ThemeDecor";
 import Splash from "@/components/Splash";
+import Onboarding from "@/components/Onboarding";
 
 export const metadata: Metadata = {
   title: "Dressé — Tu boutique personal",
@@ -43,6 +44,7 @@ export default function RootLayout({
           <Splash />
           <ThemeAmbience />
           {children}
+          <Onboarding />
         </StoreProvider>
       </body>
     </html>
