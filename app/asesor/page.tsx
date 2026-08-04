@@ -124,6 +124,9 @@ export default function Asesor() {
             categoria: p.categoria,
             color: p.color,
             estilo: p.estilo,
+            // La URL pública de la foto: con esto Madame Dressé ve la prenda
+            // de verdad en vez de fiarse solo del nombre y el color.
+            imagen: p.imagen,
           })),
         }),
       });

@@ -17,6 +17,16 @@ import { NextRequest, NextResponse } from "next/server";
 const MODELO = "claude-sonnet-4-6";
 
 /**
+ * Tope de fotos que se le enseñan a Madame Dressé de una vez.
+ *
+ * Cada foto cuesta dinero (alrededor de mil tokens), así que esto acota lo que
+ * puede costar una consulta. El plan gratuito permite 20 prendas, de modo que
+ * en la práctica casi nadie lo alcanza; existe por las cuentas Premium, que no
+ * tienen límite de armario.
+ */
+const MAX_FOTOS = 24;
+
+/**
  * Madame Dressé: la estilista de la casa. Sofisticada por fuera, amiga por
  * dentro. Habla en español, tutea, es directa y cálida, con criterio real de
  * moda y algún toque de humor. Nunca adula por adular.
@@ -161,12 +171,25 @@ async function generarOutfits(
     );
   }
 
+  // Prendas cuya foto puede ver Madame Dressé. Se le pasa la URL pública de
+  // Supabase y es la API de Anthropic quien la descarga: así la petición
+  // sigue pesando cuatro líneas y no chocamos con el límite de 4,5 MB.
+  const conFoto = armario
+    .filter((p: any) => typeof p.imagen === "string" && /^https?:\/\//.test(p.imagen))
+    .slice(0, MAX_FOTOS);
+
   const prompt = `${VOZ}
 
 Tu tarea: vestir a esta persona para "${ocasion || "un día cualquiera"}" usando SOLO la ropa que ya tiene. Su estilo personal es "${estilo || "no definido"}".
 
 Su armario (usa los id exactos):
-${JSON.stringify(armario, null, 2)}
+${JSON.stringify(armario.map(({ imagen, ...resto }: any) => resto), null, 2)}
+${
+  conFoto.length
+    ? `
+Después de este texto verás las fotos de ${conFoto.length} de esas prendas, cada una precedida por su id. Míralas: fíjate en el color real, el estampado, el tejido y el corte, que dicen mucho más que el nombre. Si lo que ves no coincide con la descripción, fíate de la foto.`
+    : ""
+}
 
 Reglas:
 - Propón entre 2 y 3 outfits completos y distintos entre sí.
@@ -178,8 +201,23 @@ Reglas:
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"intro": "1-2 frases tuyas presentando lo que has preparado", "outfits": [{"titulo": "nombre corto y con encanto del look", "prendaIds": ["id1", "id2"], "porque": "por qué funciona"}]}`;
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const contenidoConFotos: any[] = [{ type: "text", text: prompt }];
+  for (const p of conFoto) {
+    contenidoConFotos.push({ type: "text", text: `id ${p.id} — ${p.nombre}:` });
+    contenidoConFotos.push({
+      type: "image",
+      source: { type: "url", url: p.imagen },
+    });
+  }
+  if (conFoto.length) {
+    contenidoConFotos.push({
+      type: "text",
+      text: "Ahora responde SOLO con el JSON pedido, sin texto alrededor.",
+    });
+  }
+
+  const pedir = (contenido: any) =>
+    fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -189,9 +227,20 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
       body: JSON.stringify({
         model: MODELO,
         max_tokens: 1400,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: contenido }],
       }),
     });
+
+  try {
+    let res = await pedir(contenidoConFotos);
+
+    // Si alguna foto no se puede descargar, la petición entera falla. Antes de
+    // dejar a la usuaria sin outfit, se reintenta con el armario solo en texto,
+    // que es exactamente como funcionaba hasta ahora.
+    if (!res.ok && conFoto.length) {
+      console.error("Fallo con fotos, reintentando sin ellas:", await res.text());
+      res = await pedir(prompt);
+    }
 
     if (!res.ok) {
       console.error("Error de la API de Anthropic:", await res.text());
