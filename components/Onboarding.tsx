@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { ESTILOS } from "@/lib/data";
@@ -78,7 +78,8 @@ function IlustracionComunidad() {
 interface Diapositiva {
   titulo: ClaveTexto;
   texto: ClaveTexto;
-  ilustracion: () => JSX.Element;
+  // React 19 quitó el espacio de nombres JSX global: hay que tomarlo de React.
+  ilustracion: () => ReactElement;
 }
 
 const DIAPOSITIVAS: Diapositiva[] = [
