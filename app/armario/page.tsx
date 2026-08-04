@@ -11,6 +11,7 @@ import Toast from "@/components/Toast";
 import { useStore } from "@/lib/store";
 import { CATEGORIAS, Categoria, Prenda, Look, diasSinUsar } from "@/lib/data";
 import { t, ClaveTexto } from "@/lib/i18n";
+import { comprimirADataUrl } from "@/lib/imagen";
 
 const LIMITE_GRATIS = 20;
 const DIAS_OLVIDO = 30;
@@ -128,14 +129,19 @@ export default function Armario() {
       // detalles reales son los suyos, no los de una imagen ya procesada.
       const catalogar = (async () => {
         try {
+          // Reducir antes de enviar: Vercel rechaza peticiones >4,5 MB y una
+          // foto de iPhone a resolución completa las supera. Sin esto el
+          // catalogado fallaba y la prenda se guardaba sin color, que es
+          // justo lo que Madame Dressé necesita para vestirte.
+          const paraIA = await comprimirADataUrl(dataUrl);
           const res = await fetch("/api/asesor", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ modo: "catalogar", imagen: dataUrl }),
+            body: JSON.stringify({ modo: "catalogar", imagen: paraIA }),
           });
           if (res.ok) return await res.json();
         } catch {}
-        return {};
+        return null;
       })();
 
       const limpiar = (async () => {
@@ -154,12 +160,16 @@ export default function Armario() {
       const [sugerencia, limpia] = await Promise.all([catalogar, limpiar]);
       setAnalizando(false);
       setFotoLimpia(limpia);
+      // Si el catalogado falla, la prenda se guarda sin color y eso deja
+      // ciega a Madame Dressé. Antes pasaba en silencio: ahora se avisa.
+      if (!sugerencia) avisar("No pude reconocer la prenda; revísala");
+      const s = sugerencia || {};
       setNueva({
         id: `p${Date.now()}`,
-        nombre: sugerencia.nombre || "Nueva prenda",
-        categoria: sugerencia.categoria || "top",
-        color: sugerencia.color || "—",
-        estilo: sugerencia.estilo || perfil.estilo || "—",
+        nombre: s.nombre || "Nueva prenda",
+        categoria: s.categoria || "top",
+        color: s.color || "—",
+        estilo: s.estilo || perfil.estilo || "—",
         imagen: limpia || dataUrl,
         ultimoUso: new Date().toISOString(),
       });

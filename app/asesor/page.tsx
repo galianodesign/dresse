@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
 import { useStore } from "@/lib/store";
+import { comprimirADataUrl } from "@/lib/imagen";
 import { getTheme } from "@/lib/themes";
 import { SectionBackdrop } from "@/components/ThemeDecor";
 import Toast from "@/components/Toast";
@@ -67,12 +68,15 @@ export default function Asesor() {
   async function analizar(dataUrl: string) {
     setCargando(true);
     try {
+      // Reducir antes de enviar: una foto de iPhone a resolución completa
+      // supera el límite de 4,5 MB de Vercel y la petición muere con un 413.
+      const paraIA = await comprimirADataUrl(dataUrl);
       const res = await fetch("/api/asesor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           modo: "asesorar",
-          imagen: dataUrl,
+          imagen: paraIA,
           estilo: perfil.estilo,
           armario: prendas.map((p) => ({
             nombre: p.nombre,
