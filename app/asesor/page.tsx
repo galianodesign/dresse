@@ -83,6 +83,9 @@ export default function Asesor() {
             categoria: p.categoria,
             color: p.color,
             estilo: p.estilo,
+            // Para que vea tu ropa de verdad al juzgar si la prenda encaja:
+            // toda la pregunta es si combina con lo que ya tienes.
+            imagen: p.imagen,
           })),
         }),
       });

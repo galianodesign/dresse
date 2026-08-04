@@ -95,23 +95,62 @@ export async function POST(req: NextRequest) {
   }
   const [, mediaType, data] = match;
 
+  // Fotos del armario que se le enseñan al valorar una compra. Solo en modo
+  // "asesorar": catalogar mira una prenda suelta y no necesita el armario.
+  const fotosArmario =
+    modo === "catalogar" || !Array.isArray(armario)
+      ? []
+      : armario
+          .filter((p: any) => typeof p.imagen === "string" && /^https?:\/\//.test(p.imagen))
+          .slice(0, MAX_FOTOS);
+
   const prompt =
     modo === "catalogar"
       ? `Analiza esta foto de una prenda de ropa. Responde SOLO con JSON válido, sin markdown ni explicaciones, con esta forma exacta:
 {"nombre": "nombre corto y natural de la prenda en español", "categoria": "top|pantalon|calzado|abrigo|accesorio", "color": "color principal", "estilo": "Minimalista|Colorida|Elegante|Casual|Streetwear|Romántica"}`
       : `${VOZ}
 
-La persona está pensando en comprarse la prenda de la foto. Su estilo personal es "${estilo || "no definido"}". Este es su armario actual:
+La persona está pensando en comprarse la prenda de LA PRIMERA foto. Su estilo personal es "${estilo || "no definido"}". Este es su armario actual:
 
-${JSON.stringify(armario, null, 2)}
+${JSON.stringify(
+  (Array.isArray(armario) ? armario : []).map(({ imagen, ...resto }: any) => resto),
+  null,
+  2
+)}
+${
+  fotosArmario.length
+    ? `
+Después de este texto verás las fotos de ${fotosArmario.length} prendas de su armario, cada una con su nombre delante. NO confundas ninguna de ellas con la prenda que quiere comprarse: esa es la primera foto, la que va antes de este texto. Mira su ropa de verdad —color, estampado, tejido, corte— para juzgar si la prenda nueva encaja. Si lo que ves no coincide con la descripción escrita, fíate de la foto.`
+    : ""
+}
 
 Decide si la compra tiene sentido: ¿combina con lo que ya tiene? ¿cubre un hueco real o duplica algo que ya posee? Propón combinaciones concretas usando SOLO prendas que existan en su armario, llamándolas por su nombre exacto. Si no combina con casi nada, díselo claramente.
 
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"compra": true/false, "resumen": "2-3 frases con tu voz de Madame Dressé explicando el veredicto", "combinaciones": [{"titulo": "nombre del look", "prendas": ["nombre exacto 1", "nombre exacto 2"]}], "aviso": "opcional: qué le falta en el armario para sacarle más partido"}`;
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  // La prenda que quiere comprarse va SIEMPRE primera, antes del texto, para
+  // que no se confunda con las del armario que vienen después.
+  const laPrendaNueva = {
+    type: "image",
+    source: { type: "base64", media_type: mediaType, data },
+  };
+
+  const contenidoBase: any[] = [laPrendaNueva, { type: "text", text: prompt }];
+  const contenidoConArmario: any[] = [...contenidoBase];
+  for (const p of fotosArmario) {
+    contenidoConArmario.push({ type: "text", text: `De su armario — ${p.nombre}:` });
+    contenidoConArmario.push({ type: "image", source: { type: "url", url: p.imagen } });
+  }
+  if (fotosArmario.length) {
+    contenidoConArmario.push({
+      type: "text",
+      text: "Ahora responde SOLO con el JSON pedido, sin texto alrededor.",
+    });
+  }
+
+  const pedir = (contenido: any[]) =>
+    fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -121,20 +160,19 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
       body: JSON.stringify({
         model: MODELO,
         max_tokens: 1024,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: mediaType, data },
-              },
-              { type: "text", text: prompt },
-            ],
-          },
-        ],
+        messages: [{ role: "user", content: contenido }],
       }),
     });
+
+  try {
+    let res = await pedir(contenidoConArmario);
+
+    // Si alguna foto del armario no se puede descargar, la petición entera
+    // falla. Se reintenta sin ellas antes que dejarla sin veredicto.
+    if (!res.ok && fotosArmario.length) {
+      console.error("Fallo con fotos del armario, reintentando sin ellas:", await res.text());
+      res = await pedir(contenidoBase);
+    }
 
     if (!res.ok) {
       const err = await res.text();
