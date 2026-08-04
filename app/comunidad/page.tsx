@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
 import BottomNav from "@/components/BottomNav";
+import Toast from "@/components/Toast";
 import Header from "@/components/Header";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import { createClient } from "@/lib/supabase/client";
@@ -43,6 +44,14 @@ export default function Comunidad() {
   const [guardarAbierto, setGuardarAbierto] = useState(false);
   const [enTableros, setEnTableros] = useState<string[]>([]);
   const [nuevoTablero, setNuevoTablero] = useState("");
+  const [toast, setToast] = useState("");
+
+  /** Confirmación breve, con el estilo de la app en vez del cuadro del navegador */
+  function avisar(msg: string) {
+    setToast("");
+    requestAnimationFrame(() => setToast(msg));
+    setTimeout(() => setToast(""), 1900);
+  }
 
   async function abrirGuardar(postId: string) {
     setGuardarAbierto(true);
@@ -437,7 +446,7 @@ export default function Comunidad() {
                     navigator.share({ title: "Dressé", text: texto, url: location.origin }).catch(() => {});
                   } else {
                     navigator.clipboard?.writeText(`${texto} ${location.origin}`);
-                    alert("Copiado al portapapeles");
+                    avisar("Copiado al portapapeles");
                   }
                 }}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 text-sm"
@@ -737,6 +746,7 @@ export default function Comunidad() {
         </div>
       )}
 
+      {toast && <Toast mensaje={toast} />}
       <BottomNav />
     </main>
   );

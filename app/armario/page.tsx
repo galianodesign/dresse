@@ -9,7 +9,7 @@ import PrendaCard from "@/components/PrendaCard";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import Toast from "@/components/Toast";
 import { useStore } from "@/lib/store";
-import { CATEGORIAS, Categoria, Prenda, Look, diasSinUsar } from "@/lib/data";
+import { CATEGORIAS, Categoria, ESTILOS, Prenda, Look, diasSinUsar } from "@/lib/data";
 import { t, ClaveTexto } from "@/lib/i18n";
 import { comprimirADataUrl } from "@/lib/imagen";
 
@@ -44,6 +44,7 @@ export default function Armario() {
   const [fotoLimpia, setFotoLimpia] = useState<string | null>(null);
   const [usarOriginal, setUsarOriginal] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
+  const [limiteAbierto, setLimiteAbierto] = useState(false);
   const [detalle, setDetalle] = useState<Prenda | null>(null);
   const [creandoLook, setCreandoLook] = useState(false);
   const [lookSel, setLookSel] = useState<string[]>([]);
@@ -516,7 +517,7 @@ export default function Armario() {
         <button
           onClick={() => {
             if (limiteAlcanzado) {
-              alert("Has llegado al límite de 20 prendas del plan gratuito. Pásate a Premium para un armario ilimitado.");
+              setLimiteAbierto(true);
               return;
             }
             setEligiendo(true);
@@ -528,6 +529,48 @@ export default function Armario() {
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
           </svg>
         </button>
+      )}
+
+      {/* Armario lleno en el plan gratuito.
+          Era un alert() del navegador sin salida ninguna. Mientras Stripe no
+          esté, lo honesto es explicarlo y ofrecer lo único que sí se puede
+          hacer hoy: quitar alguna prenda. */}
+      {limiteAbierto && (
+        <div
+          className="overlay fixed inset-0 z-50 flex items-end bg-ink/40"
+          onClick={() => setLimiteAbierto(false)}
+        >
+          <div
+            className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CabeceraPanel
+              titulo="Tu armario está lleno"
+              onCerrar={() => setLimiteAbierto(false)}
+            >
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                El plan gratuito guarda hasta {LIMITE_GRATIS} prendas y ya las
+                tienes todas.
+              </p>
+            </CabeceraPanel>
+
+            <p className="text-sm leading-relaxed text-muted">
+              Premium quitará ese límite, pero todavía no está disponible.
+              Mientras tanto, puedes hacer sitio quitando alguna prenda que ya
+              no uses: toca una y elige “Eliminar prenda”.
+            </p>
+
+            <button
+              onClick={() => {
+                setLimiteAbierto(false);
+                setOrden("olvidadas");
+              }}
+              className="btn-primary mt-5"
+            >
+              Ver las que menos me pongo
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Elegir origen de la foto */}
@@ -721,11 +764,43 @@ export default function Armario() {
               ))}
             </div>
 
-            <p className="mt-3 text-xs text-muted">
-              {detalle.color} · {detalle.estilo}
-              {diasSinUsar(detalle) !== null &&
-                ` · Último uso hace ${diasSinUsar(detalle)} días`}
+            {/* Color y estilo editables. Antes solo se mostraban, así que si
+                la IA se equivocaba no había forma de corregirlo — y son justo
+                los dos datos con los que Madame Dressé te viste. */}
+            <label className="mt-4 block text-[11px] uppercase tracking-[0.18em] text-muted">
+              Color
+            </label>
+            <input
+              value={detalle.color === "—" ? "" : detalle.color}
+              onChange={(e) => setDetalle({ ...detalle, color: e.target.value })}
+              placeholder="Azul marino, crudo, negro…"
+              maxLength={30}
+              className="mt-1.5 w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm outline-none focus:border-accent"
+            />
+
+            <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-muted">
+              Estilo
             </p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {ESTILOS.map((e) => (
+                <button
+                  key={e}
+                  onClick={() =>
+                    setDetalle({ ...detalle, estilo: detalle.estilo === e ? "—" : e })
+                  }
+                  className="chip"
+                  data-active={detalle.estilo === e}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+
+            {diasSinUsar(detalle) !== null && (
+              <p className="mt-3 text-xs text-muted">
+                Último uso hace {diasSinUsar(detalle)} días
+              </p>
+            )}
 
             <div className="mt-5 space-y-2">
               <button
@@ -733,6 +808,8 @@ export default function Armario() {
                   updatePrenda(detalle.id, {
                     nombre: detalle.nombre,
                     categoria: detalle.categoria,
+                    color: detalle.color.trim() || "—",
+                    estilo: detalle.estilo,
                   });
                   setDetalle(null);
                   avisar("Cambios guardados");

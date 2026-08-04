@@ -401,8 +401,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           cambios.foto_url = url;
           setPerfilState((prev) => ({ ...prev, foto: url }));
         } else {
-          // La subida falló: no tocar la foto guardada y avisar
-          alert("No se pudo subir la foto. Inténtalo de nuevo.");
+          // La subida falló: no tocar la foto guardada y avisar con el mismo
+          // aviso que el resto de la app, en vez del cuadro del navegador.
+          fallo("subir la foto");
           const { data } = await supabase.from("perfiles").select("foto_url").eq("id", user.id).single();
           setPerfilState((prev) => ({ ...prev, foto: data?.foto_url || null }));
         }
