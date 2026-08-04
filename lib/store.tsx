@@ -65,6 +65,13 @@ interface Store {
   guardarEnTablero: (tableroId: string, postId: string) => void;
   quitarDeTablero: (tableroId: string, postId: string) => void;
   ready: boolean;
+  /**
+   * Último fallo al guardar en la nube, o null. Antes estos errores se
+   * tragaban en silencio y la usuaria creía haber guardado algo que se había
+   * perdido. Lo pinta <AvisoError/> desde el layout.
+   */
+  avisoError: string | null;
+  limpiarAviso: () => void;
 }
 
 const DEFAULT_PERFIL: Perfil = {
@@ -155,6 +162,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [wishlist, setWishlist] = useState<WishItem[]>([]);
   const [tableros, setTableros] = useState<Tablero[]>([]);
   const [ready, setReady] = useState(false);
+  const [avisoError, setAvisoError] = useState<string | null>(null);
+
+  const limpiarAviso = useCallback(() => setAvisoError(null), []);
+
+  /** Avisar de un fallo al guardar, en vez de tragárselo */
+  const fallo = useCallback((accion: string) => {
+    setAvisoError(`No se pudo ${accion}. Revisa tu conexión e inténtalo otra vez.`);
+  }, []);
+
+  /**
+   * Envoltorio de toda escritura contra Supabase. Devuelve true si fue bien.
+   * Existe porque estas llamadas se hacían con `.then(() => {})`, que descarta
+   * el error: si Supabase rechazaba un guardado, la pantalla seguía mostrando
+   * el cambio y el dato no existía en ninguna parte.
+   */
+  const escribir = useCallback(
+    async (
+      accion: string,
+      op: PromiseLike<{ error: { message: string } | null }>
+    ): Promise<boolean> => {
+      try {
+        const { error } = await op;
+        if (error) {
+          console.error(`[Dressé] fallo al ${accion}:`, error.message);
+          fallo(accion);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error(`[Dressé] fallo al ${accion}:`, e);
+        fallo(accion);
+        return false;
+      }
+    },
+    [fallo]
+  );
 
   /* ── Comprimir imagen a máx 900px para subidas rápidas y fiables ── */
   const comprimir = (dataUrl: string): Promise<Blob> =>
@@ -305,7 +348,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const idiomaMovil = navigator.language?.slice(0, 2);
           if (idiomaMovil && idiomaMovil !== "es" && (pf.data as any)?.idioma !== "en") {
             setPerfilState((prev) => ({ ...prev, idioma: "en" }));
-            supabase.from("perfiles").update({ idioma: "en" }).eq("id", uid).then(() => {});
+            // Nadie ha pedido esto: si falla se registra pero no se molesta a
+            // la usuaria. Como mucho, se volverá a detectar en otro momento.
+            supabase
+              .from("perfiles")
+              .update({ idioma: "en" })
+              .eq("id", uid)
+              .then(({ error }) => {
+                if (error) console.error("[Dressé] no se pudo guardar el idioma:", error.message);
+              });
           }
         }
       } catch {}
@@ -357,14 +408,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
       if (Object.keys(cambios).length) {
-        await supabase.from("perfiles").update(cambios).eq("id", user.id);
+        await escribir(
+          "guardar tu perfil",
+          supabase.from("perfiles").update(cambios).eq("id", user.id)
+        );
       }
     })();
   };
 
   const setTheme = (t: ThemeId) => {
     setThemeState(t);
-    if (user) supabase.from("perfiles").update({ tema: t }).eq("id", user.id).then(() => {});
+    if (user) {
+      escribir(
+        "guardar el tema",
+        supabase.from("perfiles").update({ tema: t }).eq("id", user.id)
+      );
+    }
   };
 
   /* ── Prendas ── */
@@ -372,7 +431,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(p.imagen);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("prendas")
         .insert({
           usuario_id: user.id,
@@ -386,11 +445,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
         .select()
         .single();
-      if (data) setPrendas((prev) => [dbToPrenda(data), ...prev]);
+      // Antes, si esto fallaba, la prenda no aparecía y nadie decía por qué.
+      if (error || !data) {
+        console.error("[Dressé] fallo al guardar la prenda:", error?.message);
+        fallo("guardar la prenda");
+        return;
+      }
+      setPrendas((prev) => [dbToPrenda(data), ...prev]);
     })();
   };
 
   const updatePrenda = (id: string, cambios: Partial<Prenda>) => {
+    const anterior = prendas.find((p) => p.id === id);
     setPrendas((prev) => prev.map((p) => (p.id === id ? { ...p, ...cambios } : p)));
     if (!user) return;
     const db: Record<string, any> = {};
@@ -402,11 +468,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (cambios.favorito !== undefined) db.favorito = cambios.favorito;
     if (cambios.usos !== undefined) db.usos = cambios.usos;
     if (Object.keys(db).length) {
-      supabase.from("prendas").update(db).eq("id", id).then(() => {});
+      (async () => {
+        const ok = await escribir(
+          "guardar los cambios de la prenda",
+          supabase.from("prendas").update(db).eq("id", id)
+        );
+        // Deshacer el cambio en pantalla si no llegó a guardarse
+        if (!ok && anterior) {
+          setPrendas((prev) => prev.map((p) => (p.id === id ? anterior : p)));
+        }
+      })();
     }
   };
 
   const removePrenda = (id: string) => {
+    const prendaBorrada = prendas.find((p) => p.id === id);
+    const looksAntes = looks;
     setPrendas((prev) => prev.filter((p) => p.id !== id));
     // Quitarla de los looks que la incluyan
     setLooks((prev) => {
@@ -414,34 +491,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       afectados.forEach((l) => {
         const nuevas = l.prendaIds.filter((pid) => pid !== id);
         if (nuevas.length === 0) {
-          supabase.from("looks").delete().eq("id", l.id).then(() => {});
+          escribir("actualizar tus looks", supabase.from("looks").delete().eq("id", l.id));
         } else {
-          supabase.from("looks").update({ prenda_ids: nuevas }).eq("id", l.id).then(() => {});
+          escribir(
+            "actualizar tus looks",
+            supabase.from("looks").update({ prenda_ids: nuevas }).eq("id", l.id)
+          );
         }
       });
       return prev
         .map((l) => ({ ...l, prendaIds: l.prendaIds.filter((pid) => pid !== id) }))
         .filter((l) => l.prendaIds.length > 0);
     });
-    supabase.from("prendas").delete().eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "borrar la prenda",
+        supabase.from("prendas").delete().eq("id", id)
+      );
+      // Si no se borró de verdad, devolverla a la pantalla en vez de fingir
+      if (!ok && prendaBorrada) {
+        setPrendas((prev) => [prendaBorrada, ...prev]);
+        setLooks(looksAntes);
+      }
+    })();
   };
 
   /* ── Looks ── */
   const addLook = (l: Look) => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("looks")
         .insert({ usuario_id: user.id, nombre: l.nombre, prenda_ids: l.prendaIds })
         .select()
         .single();
-      if (data) setLooks((prev) => [dbToLook(data), ...prev]);
+      if (error || !data) {
+        console.error("[Dressé] fallo al guardar el look:", error?.message);
+        fallo("guardar el look");
+        return;
+      }
+      setLooks((prev) => [dbToLook(data), ...prev]);
     })();
   };
 
   const removeLook = (id: string) => {
+    const borrado = looks.find((l) => l.id === id);
     setLooks((prev) => prev.filter((l) => l.id !== id));
-    supabase.from("looks").delete().eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "borrar el look",
+        supabase.from("looks").delete().eq("id", id)
+      );
+      if (!ok && borrado) setLooks((prev) => [borrado, ...prev]);
+    })();
   };
 
   /* ── Historial del asesor ── */
@@ -449,12 +551,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(a.imagen);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("historial_asesor")
         .insert({ usuario_id: user.id, compra: a.compra, resumen: a.resumen, imagen_url })
         .select()
         .single();
-      if (data) setHistorial((prev) => [dbToAnalisis(data), ...prev].slice(0, 5));
+      // El historial es secundario: se registra el fallo pero no se molesta a
+      // la usuaria, que ya tiene su respuesta del asesor en pantalla.
+      if (error || !data) {
+        console.error("[Dressé] fallo al guardar el historial:", error?.message);
+        return;
+      }
+      setHistorial((prev) => [dbToAnalisis(data), ...prev].slice(0, 5));
     })();
   };
 
@@ -463,7 +571,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(p.imagen);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("posts")
         .insert({
           usuario_id: user.id,
@@ -475,32 +583,62 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
         .select()
         .single();
-      if (data) setMisPosts((prev) => [dbToPost(data), ...prev]);
+      if (error || !data) {
+        console.error("[Dressé] fallo al publicar:", error?.message);
+        fallo("publicar tu outfit");
+        return;
+      }
+      setMisPosts((prev) => [dbToPost(data), ...prev]);
     })();
   };
 
   const removePost = (id: string) => {
+    const borrado = misPosts.find((p) => p.id === id);
     setMisPosts((prev) => prev.filter((p) => p.id !== id));
-    supabase.from("posts").delete().eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "borrar la publicación",
+        supabase.from("posts").delete().eq("id", id)
+      );
+      if (!ok && borrado) setMisPosts((prev) => [borrado, ...prev]);
+    })();
   };
 
   /* ── Seguidores ── */
   const toggleSeguir = (usuarioId: string) => {
     if (!user || usuarioId === user.id) return;
-    if (seguidos.includes(usuarioId)) {
+    const seguiaAntes = seguidos.includes(usuarioId);
+    // Deshacer si falla: creerte que sigues a alguien y no seguirle es de los
+    // errores que peor sientan, porque no te enteras hasta mucho después.
+    const deshacer = () =>
+      setSeguidos((prev) =>
+        seguiaAntes
+          ? [...prev.filter((u) => u !== usuarioId), usuarioId]
+          : prev.filter((u) => u !== usuarioId)
+      );
+
+    if (seguiaAntes) {
       setSeguidos((prev) => prev.filter((u) => u !== usuarioId));
-      supabase
-        .from("seguidores")
-        .delete()
-        .eq("seguidor_id", user.id)
-        .eq("seguido_id", usuarioId)
-        .then(() => {});
+      (async () => {
+        const ok = await escribir(
+          "dejar de seguir",
+          supabase
+            .from("seguidores")
+            .delete()
+            .eq("seguidor_id", user.id)
+            .eq("seguido_id", usuarioId)
+        );
+        if (!ok) deshacer();
+      })();
     } else {
       setSeguidos((prev) => [...prev, usuarioId]);
-      supabase
-        .from("seguidores")
-        .insert({ seguidor_id: user.id, seguido_id: usuarioId })
-        .then(() => {});
+      (async () => {
+        const ok = await escribir(
+          "seguir a esta persona",
+          supabase.from("seguidores").insert({ seguidor_id: user.id, seguido_id: usuarioId })
+        );
+        if (!ok) deshacer();
+      })();
     }
   };
 
@@ -508,91 +646,150 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const solicitarSeguir = (usuarioId: string) => {
     if (!user || usuarioId === user.id) return;
     setSolicitudesEnviadas((prev) => [...prev, usuarioId]);
-    supabase
-      .from("solicitudes")
-      .insert({ seguidor_id: user.id, seguido_id: usuarioId })
-      .then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "enviar la solicitud",
+        supabase.from("solicitudes").insert({ seguidor_id: user.id, seguido_id: usuarioId })
+      );
+      if (!ok) setSolicitudesEnviadas((prev) => prev.filter((u) => u !== usuarioId));
+    })();
   };
 
   const cancelarSolicitud = (usuarioId: string) => {
     if (!user) return;
     setSolicitudesEnviadas((prev) => prev.filter((u) => u !== usuarioId));
-    supabase
-      .from("solicitudes")
-      .delete()
-      .eq("seguidor_id", user.id)
-      .eq("seguido_id", usuarioId)
-      .then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "cancelar la solicitud",
+        supabase
+          .from("solicitudes")
+          .delete()
+          .eq("seguidor_id", user.id)
+          .eq("seguido_id", usuarioId)
+      );
+      if (!ok) setSolicitudesEnviadas((prev) => [...prev, usuarioId]);
+    })();
   };
 
   const aceptarSolicitud = (usuarioId: string) => {
     if (!user) return;
+    const solicitud = solicitudesRecibidas.find((s) => s.id === usuarioId);
     setSolicitudesRecibidas((prev) => prev.filter((s) => s.id !== usuarioId));
     setFollowersCount((n) => n + 1);
     (async () => {
-      await supabase
-        .from("seguidores")
-        .insert({ seguidor_id: usuarioId, seguido_id: user.id });
-      await supabase
-        .from("solicitudes")
-        .delete()
-        .eq("seguidor_id", usuarioId)
-        .eq("seguido_id", user.id);
+      const ok = await escribir(
+        "aceptar la solicitud",
+        supabase.from("seguidores").insert({ seguidor_id: usuarioId, seguido_id: user.id })
+      );
+      if (!ok) {
+        // Si no se pudo dar de alta el seguimiento, dejar la solicitud como
+        // estaba en vez de hacerla desaparecer sin haber hecho nada.
+        setFollowersCount((n) => Math.max(0, n - 1));
+        if (solicitud) setSolicitudesRecibidas((prev) => [solicitud, ...prev]);
+        return;
+      }
+      await escribir(
+        "cerrar la solicitud",
+        supabase
+          .from("solicitudes")
+          .delete()
+          .eq("seguidor_id", usuarioId)
+          .eq("seguido_id", user.id)
+      );
     })();
   };
 
   const rechazarSolicitud = (usuarioId: string) => {
     if (!user) return;
+    const solicitud = solicitudesRecibidas.find((s) => s.id === usuarioId);
     setSolicitudesRecibidas((prev) => prev.filter((s) => s.id !== usuarioId));
-    supabase
-      .from("solicitudes")
-      .delete()
-      .eq("seguidor_id", usuarioId)
-      .eq("seguido_id", user.id)
-      .then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "rechazar la solicitud",
+        supabase
+          .from("solicitudes")
+          .delete()
+          .eq("seguidor_id", usuarioId)
+          .eq("seguido_id", user.id)
+      );
+      if (!ok && solicitud) setSolicitudesRecibidas((prev) => [solicitud, ...prev]);
+    })();
   };
 
   /* ── Tableros (Pinterest) ── */
   const addTablero = async (nombre: string): Promise<string | null> => {
     if (!user || !nombre.trim()) return null;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tableros")
       .insert({ usuario_id: user.id, nombre: nombre.trim() })
       .select()
       .single();
-    if (data) {
-      setTableros((prev) => [...prev, { id: data.id, nombre: data.nombre, privado: false }]);
-      return data.id;
+    if (error || !data) {
+      console.error("[Dressé] fallo al crear el tablero:", error?.message);
+      fallo("crear el tablero");
+      return null;
     }
-    return null;
+    setTableros((prev) => [...prev, { id: data.id, nombre: data.nombre, privado: false }]);
+    return data.id;
   };
 
   const renameTablero = (id: string, nombre: string) => {
+    const anterior = tableros.find((t) => t.id === id);
     setTableros((prev) => prev.map((t) => (t.id === id ? { ...t, nombre } : t)));
-    supabase.from("tableros").update({ nombre }).eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "renombrar el tablero",
+        supabase.from("tableros").update({ nombre }).eq("id", id)
+      );
+      if (!ok && anterior) {
+        setTableros((prev) => prev.map((t) => (t.id === id ? anterior : t)));
+      }
+    })();
   };
 
   const removeTablero = (id: string) => {
+    const borrado = tableros.find((t) => t.id === id);
     setTableros((prev) => prev.filter((t) => t.id !== id));
-    supabase.from("tableros").delete().eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "borrar el tablero",
+        supabase.from("tableros").delete().eq("id", id)
+      );
+      if (!ok && borrado) setTableros((prev) => [...prev, borrado]);
+    })();
   };
 
   const setTableroPrivado = (id: string, privado: boolean) => {
     setTableros((prev) => prev.map((t) => (t.id === id ? { ...t, privado } : t)));
-    supabase.from("tableros").update({ privado }).eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "cambiar la privacidad del tablero",
+        supabase.from("tableros").update({ privado }).eq("id", id)
+      );
+      // Importante deshacerlo: si cree que un tablero es privado y no lo es,
+      // está enseñando cosas sin saberlo.
+      if (!ok) {
+        setTableros((prev) => prev.map((t) => (t.id === id ? { ...t, privado: !privado } : t)));
+      }
+    })();
   };
 
   const guardarEnTablero = (tableroId: string, postId: string) => {
-    supabase.from("tablero_posts").insert({ tablero_id: tableroId, post_id: postId }).then(() => {});
+    escribir(
+      "guardar en el tablero",
+      supabase.from("tablero_posts").insert({ tablero_id: tableroId, post_id: postId })
+    );
   };
 
   const quitarDeTablero = (tableroId: string, postId: string) => {
-    supabase
-      .from("tablero_posts")
-      .delete()
-      .eq("tablero_id", tableroId)
-      .eq("post_id", postId)
-      .then(() => {});
+    escribir(
+      "quitar del tablero",
+      supabase
+        .from("tablero_posts")
+        .delete()
+        .eq("tablero_id", tableroId)
+        .eq("post_id", postId)
+    );
   };
 
   /* ── Wishlist ── */
@@ -600,18 +797,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(w.imagen);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("wishlist")
         .insert({ usuario_id: user.id, nota: w.nota, imagen_url })
         .select()
         .single();
-      if (data) setWishlist((prev) => [dbToWish(data), ...prev]);
+      if (error || !data) {
+        console.error("[Dressé] fallo al guardar en la wishlist:", error?.message);
+        fallo("guardarlo en tu wishlist");
+        return;
+      }
+      setWishlist((prev) => [dbToWish(data), ...prev]);
     })();
   };
 
   const removeWish = (id: string) => {
+    const borrado = wishlist.find((w) => w.id === id);
     setWishlist((prev) => prev.filter((w) => w.id !== id));
-    supabase.from("wishlist").delete().eq("id", id).then(() => {});
+    (async () => {
+      const ok = await escribir(
+        "quitarlo de tu wishlist",
+        supabase.from("wishlist").delete().eq("id", id)
+      );
+      if (!ok && borrado) setWishlist((prev) => [borrado, ...prev]);
+    })();
   };
 
   return (
@@ -654,6 +863,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         guardarEnTablero,
         quitarDeTablero,
         ready,
+        avisoError,
+        limpiarAviso,
       }}
     >
       {children}
