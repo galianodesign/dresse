@@ -11,6 +11,7 @@ import {
 import { createClient } from "./supabase/client";
 import { ThemeId } from "./themes";
 import { Prenda, Look, AnalisisGuardado, PostPropio, WishItem, Categoria } from "./data";
+import { BUCKET, firmarRutas, firmarUna, resolver } from "./almacen";
 import type { User } from "@supabase/supabase-js";
 
 interface Perfil {
@@ -225,18 +226,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       img.src = dataUrl;
     });
 
-  /* ── Subir una imagen (dataURL) a Storage y devolver su URL pública ── */
+  /**
+   * Sube una imagen al almacén.
+   *
+   * DE MOMENTO sigue devolviendo la dirección pública, que es lo que se
+   * guarda en la base de datos. El objetivo es guardar solo la ruta, pero
+   * mientras comunidad, perfil y los perfiles públicos no firmen sus fotos,
+   * cambiarlo dejaría rotas las imágenes nuevas en esas pantallas.
+   *
+   * Cuando todas firmen: devolver `ruta` en vez de la dirección y cerrar el
+   * almacén (`public = false`). `rutaDe` ya entiende las dos formas, así que
+   * las filas antiguas seguirán funcionando sin migrar nada.
+   */
   const subirImagen = useCallback(
     async (dataUrl: string | null): Promise<string | null> => {
       if (!dataUrl || !dataUrl.startsWith("data:") || !user) return dataUrl;
       try {
         const blob = await comprimir(dataUrl).catch(async () => (await fetch(dataUrl)).blob());
         const ruta = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-        const { error } = await supabase.storage.from("dresse").upload(ruta, blob, {
+        const { error } = await supabase.storage.from(BUCKET).upload(ruta, blob, {
           contentType: blob.type || "image/jpeg",
         });
         if (error) return null;
-        const { data } = supabase.storage.from("dresse").getPublicUrl(ruta);
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta);
         return data.publicUrl;
       } catch {
         return null;
@@ -294,6 +306,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pf.data = creado ?? ({ id: uid, nombre: base, username } as any);
       }
 
+      // Firmar de una vez todas las fotos de esta carga. Lo que hay guardado
+      // en la base de datos es una ruta (o una dirección pública antigua), y
+      // ninguna de las dos sirve ya para pintar: hay que firmarlas.
+      const firmas = await firmarRutas(supabase, [
+        pf.data?.foto_url,
+        ...(pr.data || []).map((r: any) => r.imagen_url),
+        ...(hi.data || []).map((r: any) => r.imagen_url),
+        ...(po.data || []).map((r: any) => r.imagen_url),
+        ...(wl.data || []).map((r: any) => r.imagen_url),
+      ]);
+      const foto = (v: any) => resolver(firmas, v);
+
       if (pf.data) {
         setPerfilState({
           nombre: pf.data.nombre || "",
@@ -304,7 +328,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           onboarded: pf.data.onboarded ?? true,
           username: pf.data.username || "",
           bio: pf.data.bio || "",
-          foto: pf.data.foto_url,
+          foto: foto(pf.data.foto_url),
           notificaciones: pf.data.notificaciones ?? true,
           privado: !!pf.data.privado,
           idioma: (pf.data.idioma as "es" | "en") || "es",
@@ -312,13 +336,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         if (pf.data.tema) setThemeState(pf.data.tema as ThemeId);
       }
-      if (pr.data) setPrendas(pr.data.map(dbToPrenda));
+      if (pr.data)
+        setPrendas(pr.data.map((r: any) => dbToPrenda({ ...r, imagen_url: foto(r.imagen_url) })));
       if (lk.data) setLooks(lk.data.map(dbToLook));
-      if (hi.data) setHistorial(hi.data.map(dbToAnalisis));
-      if (po.data) setMisPosts(po.data.map((r) => dbToPost({ ...r, likes_count: r.likes })));
+      if (hi.data)
+        setHistorial(hi.data.map((r: any) => dbToAnalisis({ ...r, imagen_url: foto(r.imagen_url) })));
+      if (po.data)
+        setMisPosts(
+          po.data.map((r: any) =>
+            dbToPost({ ...r, likes_count: r.likes, imagen_url: foto(r.imagen_url) })
+          )
+        );
       if (sg.data) setSeguidos(sg.data.map((r: any) => r.seguido_id));
       setFollowersCount(fc.count || 0);
-      if (wl.data) setWishlist(wl.data.map(dbToWish));
+      if (wl.data)
+        setWishlist(wl.data.map((r: any) => dbToWish({ ...r, imagen_url: foto(r.imagen_url) })));
       if (se.data) setSolicitudesEnviadas(se.data.map((r: any) => r.seguido_id));
       if (tb.data)
         setTableros(
@@ -332,12 +364,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .from("perfiles")
           .select("id, username, nombre, foto_url")
           .in("id", ids);
+        const firmasSol = await firmarRutas(
+          supabase,
+          (perfs || []).map((p: any) => p.foto_url)
+        );
         setSolicitudesRecibidas(
           (perfs || []).map((p: any) => ({
             id: p.id,
             username: p.username || "dresse",
             nombre: p.nombre || "",
-            foto: p.foto_url,
+            foto: resolver(firmasSol, p.foto_url),
           }))
         );
       }
@@ -399,7 +435,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const url = await subirImagen(p.foto);
         if (url) {
           cambios.foto_url = url;
-          setPerfilState((prev) => ({ ...prev, foto: url }));
+          // Firmar para poder enseñarla ya; en la base de datos va la ruta.
+          const fotoFirmada = await firmarUna(supabase, url);
+          setPerfilState((prev) => ({ ...prev, foto: fotoFirmada }));
         } else {
           // La subida falló: no tocar la foto guardada y avisar con el mismo
           // aviso que el resto de la app, en vez del cuadro del navegador.
@@ -452,7 +490,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         fallo("guardar la prenda");
         return;
       }
-      setPrendas((prev) => [dbToPrenda(data), ...prev]);
+      const fotoPrenda = await firmarUna(supabase, data.imagen_url);
+      setPrendas((prev) => [dbToPrenda({ ...data, imagen_url: fotoPrenda }), ...prev]);
     })();
   };
 
@@ -563,7 +602,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.error("[Dressé] fallo al guardar el historial:", error?.message);
         return;
       }
-      setHistorial((prev) => [dbToAnalisis(data), ...prev].slice(0, 5));
+      const fotoAnalisis = await firmarUna(supabase, data.imagen_url);
+      setHistorial((prev) =>
+        [dbToAnalisis({ ...data, imagen_url: fotoAnalisis }), ...prev].slice(0, 5)
+      );
     })();
   };
 
@@ -589,7 +631,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         fallo("publicar tu outfit");
         return;
       }
-      setMisPosts((prev) => [dbToPost(data), ...prev]);
+      const fotoPost = await firmarUna(supabase, data.imagen_url);
+      setMisPosts((prev) => [dbToPost({ ...data, imagen_url: fotoPost }), ...prev]);
     })();
   };
 
@@ -808,7 +851,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         fallo("guardarlo en tu wishlist");
         return;
       }
-      setWishlist((prev) => [dbToWish(data), ...prev]);
+      const fotoWish = await firmarUna(supabase, data.imagen_url);
+      setWishlist((prev) => [dbToWish({ ...data, imagen_url: fotoWish }), ...prev]);
     })();
   };
 
