@@ -12,7 +12,7 @@ import Toast from "@/components/Toast";
 interface Veredicto {
   compra: boolean;
   resumen: string;
-  combinaciones: { titulo: string; prendas: string[] }[];
+  combinaciones: { titulo: string; prendaIds: string[] }[];
   aviso?: string;
 }
 
@@ -79,6 +79,10 @@ export default function Asesor() {
           imagen: paraIA,
           estilo: perfil.estilo,
           armario: prendas.map((p) => ({
+            // El id permite saber con certeza a qué prenda se refiere cada
+            // combinación. Antes iban por nombre y dos prendas parecidas se
+            // volvían indistinguibles.
+            id: p.id,
             nombre: p.nombre,
             categoria: p.categoria,
             color: p.color,
@@ -359,12 +363,37 @@ export default function Asesor() {
                 </p>
               </div>
 
-              {veredicto.combinaciones.map((c, i) => (
-                <div key={i} className="hang-tag px-4 py-4 pt-7">
-                  <p className="font-display text-lg">{c.titulo}</p>
-                  <p className="mt-1 text-sm text-muted">{c.prendas.join(" + ")}</p>
-                </div>
-              ))}
+              {veredicto.combinaciones.map((c, i) => {
+                const piezas = (c.prendaIds || [])
+                  .map((id) => prendas.find((p) => p.id === id))
+                  .filter((p): p is NonNullable<typeof p> => !!p);
+                return (
+                  <div key={i} className="hang-tag px-4 py-4 pt-7">
+                    <p className="font-display text-lg">{c.titulo}</p>
+                    <p className="mt-1 text-sm text-muted">
+                      {piezas.map((p) => p.nombre).join(" + ")}
+                    </p>
+                    {/* Ahora que van por id se pueden enseñar las prendas de
+                        verdad, igual que en "qué me pongo". */}
+                    {piezas.some((p) => p.imagen) && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto">
+                        {piezas.map(
+                          (p) =>
+                            p.imagen && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={p.id}
+                                src={p.imagen}
+                                alt={p.nombre}
+                                className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                              />
+                            )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {veredicto.aviso && (
                 <p className="text-xs leading-relaxed text-muted">{veredicto.aviso}</p>

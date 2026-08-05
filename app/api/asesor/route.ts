@@ -124,10 +124,10 @@ Después de este texto verás las fotos de ${fotosArmario.length} prendas de su 
     : ""
 }
 
-Decide si la compra tiene sentido: ¿combina con lo que ya tiene? ¿cubre un hueco real o duplica algo que ya posee? Propón combinaciones concretas usando SOLO prendas que existan en su armario, llamándolas por su nombre exacto. Si no combina con casi nada, díselo claramente.
+Decide si la compra tiene sentido: ¿combina con lo que ya tiene? ¿cubre un hueco real o duplica algo que ya posee? Propón combinaciones concretas usando SOLO prendas que existan en su armario, con sus id exactos. Nunca inventes prendas que no estén. Si no combina con casi nada, díselo claramente.
 
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
-{"compra": true/false, "resumen": "2-3 frases con tu voz de Madame Dressé explicando el veredicto", "combinaciones": [{"titulo": "nombre del look", "prendas": ["nombre exacto 1", "nombre exacto 2"]}], "aviso": "opcional: qué le falta en el armario para sacarle más partido"}`;
+{"compra": true/false, "resumen": "2-3 frases con tu voz de Madame Dressé explicando el veredicto", "combinaciones": [{"titulo": "nombre del look", "prendaIds": ["id1", "id2"]}], "aviso": "opcional: qué le falta en el armario para sacarle más partido"}`;
 
   // La prenda que quiere comprarse va SIEMPRE primera, antes del texto, para
   // que no se confunda con las del armario que vienen después.
@@ -183,7 +183,22 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
     const dataRes = await res.json();
     const texto: string = dataRes.content?.[0]?.text || "";
     const limpio = texto.replace(/```json|```/g, "").trim();
-    return NextResponse.json(JSON.parse(limpio));
+    const parsed = JSON.parse(limpio);
+
+    // Descartar ids inventados, igual que en el generador de outfits
+    if (modo !== "catalogar" && Array.isArray(parsed.combinaciones)) {
+      const idsValidos = new Set(
+        (Array.isArray(armario) ? armario : []).map((p: any) => p.id)
+      );
+      parsed.combinaciones = parsed.combinaciones
+        .map((c: any) => ({
+          ...c,
+          prendaIds: (c.prendaIds || []).filter((id: string) => idsValidos.has(id)),
+        }))
+        .filter((c: any) => c.prendaIds.length > 0);
+    }
+
+    return NextResponse.json(parsed);
   } catch (e) {
     console.error("Fallo procesando la respuesta del asesor:", e);
     return NextResponse.json({ error: "Error del asesor" }, { status: 500 });
