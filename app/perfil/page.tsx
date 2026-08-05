@@ -784,6 +784,17 @@ export default function Perfil() {
                   Borrar mi cuenta
                 </button>
               </div>
+
+              {/* Los textos legales tienen que seguir siendo accesibles después
+                  de registrarse, no solo en la pantalla de acceso. */}
+              <div className="mt-2 flex gap-4 border-t border-line px-3 pt-4 text-xs text-muted">
+                <a href="/legal/privacidad" className="underline hover:text-ink">
+                  Privacidad
+                </a>
+                <a href="/legal/terminos" className="underline hover:text-ink">
+                  Términos de uso
+                </a>
+              </div>
             </div>
           </div>
         </div>

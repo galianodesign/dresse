@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
 import { useStore } from "@/lib/store";
@@ -156,6 +157,17 @@ export default function Asesor() {
         titulo="Madame Dressé"
         subtitulo="Tu estilista personal. Te dice qué comprar y qué ponerte, con lo que ya tienes."
       />
+
+      {/* El reglamento europeo de IA obliga a decir claramente que quien
+          responde es una máquina, ahí donde se interactúa con ella y no
+          escondido en un documento legal que nadie abre. */}
+      <p className="mb-5 rounded-[var(--radius-card)] border border-line bg-[var(--accent-soft)] px-4 py-3 text-xs leading-relaxed text-muted">
+        Madame Dressé es una inteligencia artificial, no una persona. Puede
+        equivocarse, y tus fotos se envían a analizar para poder responderte.{" "}
+        <Link href="/legal/privacidad" className="underline hover:text-ink">
+          Cómo funciona
+        </Link>
+      </p>
 
       {/* Qué necesitas hoy */}
       <div className="mb-6 flex gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -187,8 +188,20 @@ export default function Login() {
         </button>
       </div>
 
-      <p className="text-center text-xs text-muted">
-        Al continuar aceptas nuestros términos de uso y política de privacidad.
+      {/* Estos dos enlaces son obligatorios y tienen que poder leerse ANTES de
+          registrarse, no después. Durante meses esta frase prometió dos páginas
+          que no existían. */}
+      <p className="text-center text-xs leading-relaxed text-muted">
+        Al continuar aceptas los{" "}
+        <Link href="/legal/terminos" className="underline hover:text-ink">
+          términos de uso
+        </Link>{" "}
+        y la{" "}
+        <Link href="/legal/privacidad" className="underline hover:text-ink">
+          política de privacidad
+        </Link>
+        . Tus fotos se analizan con inteligencia artificial para reconocer tus
+        prendas.
       </p>
     </main>
   );
