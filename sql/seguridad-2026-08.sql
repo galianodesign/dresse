@@ -56,3 +56,24 @@ drop policy if exists "likes lectura" on dresse.post_likes;
 create policy "likes lectura" on dresse.post_likes for select using (
   exists (select 1 from dresse.posts p where p.id = dresse.post_likes.post_id)
 );
+
+-- ───────────────────────────────────────────────────────────────────
+--  FASE 2 (aplicado despues de desplegar el codigo que firma las fotos)
+--  IMPORTANTE: esto NO se puede ejecutar antes de ese despliegue, o
+--  todas las imagenes de la app dejan de verse.
+-- ───────────────────────────────────────────────────────────────────
+
+-- 6) Leer el almacen deja de estar abierto al mundo: solo usuarias con
+--    sesion. Antes la regla era para el rol "public", es decir cualquiera.
+drop policy if exists "dresse leer" on storage.objects;
+create policy "dresse leer" on storage.objects for select
+  to authenticated using (bucket_id = 'dresse');
+
+-- 7) El almacen deja de ser publico. A partir de aqui las fotos solo se ven
+--    con una direccion firmada, que caduca a las 8 horas (lib/almacen.ts).
+update storage.buckets set public = false where id = 'dresse';
+
+-- Comprobado tras aplicarlo:
+--   usuaria registrada -> lee las 9 fotos
+--   desconocido        -> lee 0
+--   direccion publica antigua -> HTTP 400
