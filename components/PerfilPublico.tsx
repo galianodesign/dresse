@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { getTheme } from "@/lib/themes";
 import { Flourish } from "@/components/ThemeDecor";
 import { CabeceraPanel } from "@/components/BotonCerrar";
+import { firmarRutas, resolver } from "@/lib/almacen";
 import { useLockScroll } from "@/lib/useLockScroll";
 
 interface Datos {
@@ -66,10 +67,15 @@ export default function PerfilPublico({
     (lk.data || []).forEach((l: any) => {
       likesPor[l.post_id] = (likesPor[l.post_id] || 0) + 1;
     });
+    // Firmar en lote todas las fotos de esta pantalla
+    const firmas = await firmarRutas(supabase, [
+      p?.foto_url,
+      ...(po.data || []).map((r: any) => r.imagen_url),
+    ]);
     setDatos({
       username: p?.username || "dresse",
       nombre: p?.nombre || "",
-      foto: p?.foto_url || null,
+      foto: resolver(firmas, p?.foto_url),
       privado: !!p?.privado,
       seguidores: fc.count || 0,
       siguiendo: fg.count || 0,
@@ -78,7 +84,7 @@ export default function PerfilPublico({
       (po.data || []).map((r: any) => ({
         id: r.id,
         titulo: r.titulo,
-        imagen: r.imagen_url,
+        imagen: resolver(firmas, r.imagen_url),
         likes: likesPor[r.id] || 0,
       }))
     );
@@ -94,9 +100,14 @@ export default function PerfilPublico({
       return;
     }
     const { data: perfs } = await supabase.from("perfiles").select("id, username, foto_url").in("id", ids);
+    const firmas = await firmarRutas(supabase, (perfs || []).map((p: any) => p.foto_url));
     setLista({
       titulo,
-      gente: (perfs || []).map((p: any) => ({ id: p.id, username: p.username || "dresse", foto: p.foto_url })),
+      gente: (perfs || []).map((p: any) => ({
+        id: p.id,
+        username: p.username || "dresse",
+        foto: resolver(firmas, p.foto_url),
+      })),
     });
   }
 

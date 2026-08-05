@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import PerfilPublico from "@/components/PerfilPublico";
 import { useLockScroll } from "@/lib/useLockScroll";
 import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
+import { firmarRutas, resolver } from "@/lib/almacen";
 import BottomNav from "@/components/BottomNav";
 import ThemePicker from "@/components/ThemePicker";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
@@ -75,8 +76,9 @@ export default function Perfil() {
     const postIds = Object.values(primero);
     if (postIds.length) {
       const { data: ps } = await supabase.from("posts").select("id, imagen_url").in("id", postIds);
+      const firmas = await firmarRutas(supabase, (ps || []).map((p: any) => p.imagen_url));
       const imgPor: Record<string, string | null> = {};
-      (ps || []).forEach((p: any) => (imgPor[p.id] = p.imagen_url));
+      (ps || []).forEach((p: any) => (imgPor[p.id] = resolver(firmas, p.imagen_url)));
       const port: Record<string, string | null> = {};
       Object.entries(primero).forEach(([tid, pid]) => (port[tid] = imgPor[pid] || null));
       setPortadas(port);
@@ -91,7 +93,14 @@ export default function Perfil() {
     const ids = (data || []).map((r: any) => r.post_id);
     if (!ids.length) return;
     const { data: ps } = await supabase.from("posts").select("id, titulo, imagen_url").in("id", ids);
-    setPostsTablero((ps || []).map((p: any) => ({ id: p.id, titulo: p.titulo, imagen: p.imagen_url })));
+    const firmas = await firmarRutas(supabase, (ps || []).map((p: any) => p.imagen_url));
+    setPostsTablero(
+      (ps || []).map((p: any) => ({
+        id: p.id,
+        titulo: p.titulo,
+        imagen: resolver(firmas, p.imagen_url),
+      }))
+    );
   }
   const [panel, setPanel] = useState<Panel>(null);
   const [postAbierto, setPostAbierto] = useState<PostPropio | null>(null);
@@ -111,9 +120,14 @@ export default function Perfil() {
       return;
     }
     const { data: perfs } = await supabase.from("perfiles").select("id, username, foto_url").in("id", ids);
+    const firmas = await firmarRutas(supabase, (perfs || []).map((p: any) => p.foto_url));
     setListaAbierta({
       titulo,
-      gente: (perfs || []).map((p: any) => ({ id: p.id, username: p.username || "dresse", foto: p.foto_url })),
+      gente: (perfs || []).map((p: any) => ({
+        id: p.id,
+        username: p.username || "dresse",
+        foto: resolver(firmas, p.foto_url),
+      })),
     });
   }
   const [likesPropios, setLikesPropios] = useState<Record<string, boolean>>({});

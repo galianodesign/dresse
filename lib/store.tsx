@@ -227,16 +227,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
 
   /**
-   * Sube una imagen al almacén.
+   * Sube una imagen y guarda su RUTA, no una dirección.
    *
-   * DE MOMENTO sigue devolviendo la dirección pública, que es lo que se
-   * guarda en la base de datos. El objetivo es guardar solo la ruta, pero
-   * mientras comunidad, perfil y los perfiles públicos no firmen sus fotos,
-   * cambiarlo dejaría rotas las imágenes nuevas en esas pantallas.
-   *
-   * Cuando todas firmen: devolver `ruta` en vez de la dirección y cerrar el
-   * almacén (`public = false`). `rutaDe` ya entiende las dos formas, así que
-   * las filas antiguas seguirán funcionando sin migrar nada.
+   * Antes se guardaba la dirección pública, que servía para siempre a
+   * cualquiera que la tuviera. Ahora la dirección se genera al leer, firmada
+   * y con caducidad. `rutaDe` entiende también las direcciones antiguas, así
+   * que las filas ya guardadas siguen funcionando sin migrar nada.
    */
   const subirImagen = useCallback(
     async (dataUrl: string | null): Promise<string | null> => {
@@ -248,8 +244,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           contentType: blob.type || "image/jpeg",
         });
         if (error) return null;
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta);
-        return data.publicUrl;
+        return ruta;
       } catch {
         return null;
       }
