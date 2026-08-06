@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import PaginaLegal, { Apartado, Destacado, Lista } from "@/components/PaginaLegal";
-import { TITULAR, ENCARGADOS } from "@/lib/legal";
+import { TITULAR, ENCARGADOS, complementoTitular } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Política de privacidad — Dressé",
@@ -16,9 +16,9 @@ export default function Privacidad() {
     >
       <Apartado n={1} titulo="Quién trata tus datos">
         <p>
-          El responsable del tratamiento es <strong>{TITULAR.nombre}</strong>, con
-          NIF {TITULAR.nif} y domicilio en {TITULAR.direccion}, titular de la
-          aplicación {TITULAR.marca} ({TITULAR.web}).
+          El responsable del tratamiento es <strong>{TITULAR.nombre}</strong>
+          {complementoTitular()}, titular de la aplicación {TITULAR.marca} (
+          {TITULAR.web}).
         </p>
         <p>
           Para cualquier asunto relacionado con tus datos puedes escribir a{" "}

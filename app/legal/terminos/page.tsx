@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PaginaLegal, { Apartado, Destacado, Lista } from "@/components/PaginaLegal";
-import { TITULAR } from "@/lib/legal";
+import { TITULAR, complementoTitular } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Términos de uso — Dressé",
@@ -17,9 +17,10 @@ export default function Terminos() {
     >
       <Apartado n={1} titulo="Quiénes somos y qué es Dressé">
         <p>
-          {TITULAR.marca} es una aplicación de {TITULAR.nombre}, con NIF{" "}
-          {TITULAR.nif} y domicilio en {TITULAR.direccion}, disponible en{" "}
-          {TITULAR.web}. Puedes escribirnos a{" "}
+          {TITULAR.marca} es una aplicación de{" "}
+          <strong>{TITULAR.nombre}</strong>
+          {complementoTitular()}, disponible en {TITULAR.web}. Puedes
+          escribirnos a{" "}
           <a href={`mailto:${TITULAR.email}`} className="underline">
             {TITULAR.email}
           </a>
