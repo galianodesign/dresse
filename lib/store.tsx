@@ -26,6 +26,15 @@ interface Perfil {
   privado: boolean;
   idioma: "es" | "en";
   modoOscuro: boolean;
+  /**
+   * Fecha de nacimiento declarada, en formato AAAA-MM-DD.
+   *
+   * null significa que todavía no se ha preguntado, y entonces ControlEdad
+   * bloquea la aplicación hasta que se responda. Al revés que `onboarded`, que
+   * por defecto oculta su pantalla, aquí el valor por defecto tiene que
+   * mostrarla: si no sabemos la edad, no podemos dejar entrar.
+   */
+  nacimiento: string | null;
 }
 
 interface Store {
@@ -89,6 +98,9 @@ const DEFAULT_PERFIL: Perfil = {
   privado: false,
   idioma: "es",
   modoOscuro: false,
+  // No hace falta protegerlo como a `onboarded`: ControlEdad espera a `ready`,
+  // que solo se pone a true cuando el perfil ya está cargado.
+  nacimiento: null,
 };
 
 export interface Tablero {
@@ -328,6 +340,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           privado: !!pf.data.privado,
           idioma: (pf.data.idioma as "es" | "en") || "es",
           modoOscuro: !!pf.data.modo_oscuro,
+          nacimiento: pf.data.nacimiento ?? null,
         });
         if (pf.data.tema) setThemeState(pf.data.tema as ThemeId);
       }
@@ -426,6 +439,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (p.privado !== undefined) cambios.privado = p.privado;
       if (p.idioma !== undefined) cambios.idioma = p.idioma;
       if (p.modoOscuro !== undefined) cambios.modo_oscuro = p.modoOscuro;
+      if (p.nacimiento !== undefined) cambios.nacimiento = p.nacimiento;
       if (p.foto !== undefined) {
         const url = await subirImagen(p.foto);
         if (url) {

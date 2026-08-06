@@ -4,6 +4,7 @@ import { StoreProvider } from "@/lib/store";
 import { ThemeAmbience } from "@/components/ThemeDecor";
 import Splash from "@/components/Splash";
 import Onboarding from "@/components/Onboarding";
+import ControlEdad from "@/components/ControlEdad";
 import AvisoError from "@/components/AvisoError";
 
 export const metadata: Metadata = {
@@ -45,7 +46,10 @@ export default function RootLayout({
           <Splash />
           <ThemeAmbience />
           {children}
+          {/* ControlEdad va por encima de la bienvenida (z-95 contra z-90):
+              si no sabemos la edad, no se entra ni siquiera a la bienvenida. */}
           <Onboarding />
+          <ControlEdad />
           <AvisoError />
         </StoreProvider>
       </body>

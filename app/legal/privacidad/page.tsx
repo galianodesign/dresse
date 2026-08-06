@@ -42,6 +42,11 @@ export default function Privacidad() {
             foto de perfil, estilo, idioma, tema visual y si tu cuenta es privada.
           </li>
           <li>
+            <strong>Tu fecha de nacimiento.</strong> Solo para comprobar que
+            tienes la edad mínima. No se muestra a nadie ni se usa para
+            ninguna otra cosa.
+          </li>
+          <li>
             <strong>Tu armario.</strong> Las fotos de tus prendas y lo que
             anotas sobre ellas: categoría, color, marca, estilo, temporada y con
             qué frecuencia las usas.
@@ -248,6 +253,11 @@ export default function Privacidad() {
           Dressé no está dirigida a menores de 14 años y no pueden registrarse.
           Entre los 14 y los 18 puedes usarla, pero te recomendamos hablarlo
           antes con tu madre, tu padre o quien te tenga a su cargo.
+        </p>
+        <p>
+          Por eso te pedimos la fecha de nacimiento al crear la cuenta. Es una
+          declaración tuya: no comprobamos ningún documento, igual que hacen
+          otras aplicaciones que no piden el DNI.
         </p>
         <p>
           Si detectamos una cuenta de un menor de 14 años, la eliminaremos. Si
