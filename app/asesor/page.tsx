@@ -50,7 +50,11 @@ export default function Asesor() {
 
   function avisar(msg: string) {
     setToast("");
-    requestAnimationFrame(() => setToast(msg));
+    // setTimeout y no requestAnimationFrame: si la pantalla no esta
+    // pintando fotogramas (app en segundo plano, pestana oculta) rAF no llega
+    // a ejecutarse nunca y el aviso no aparece. Con avisos de error eso
+    // significa fallar en silencio, que es justo lo que se quiere evitar.
+    setTimeout(() => setToast(msg), 0);
     setTimeout(() => setToast(""), 1900);
   }
 
