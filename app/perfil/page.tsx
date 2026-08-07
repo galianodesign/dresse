@@ -137,6 +137,7 @@ export default function Perfil() {
   const [toast, setToast] = useState("");
   const [confirmaBorrado, setConfirmaBorrado] = useState("");
   const [borrando, setBorrando] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
   const [racha, setRacha] = useState(1);
 
   useEffect(() => {
@@ -746,16 +747,26 @@ export default function Perfil() {
                 </p>
               )}
 
+              {/* Cerrar sesión de verdad exige signOut(): la sesión vive en
+                  COOKIES, y limpiar localStorage no la toca. Sin esto el
+                  navegador seguía dentro y volvía al armario, que es
+                  justamente lo contrario de lo que se acaba de pedir. */}
               <button
-                onClick={() => {
-                  if (confirm("¿Cerrar sesión y borrar los datos de este dispositivo?")) {
-                    localStorage.clear();
-                    location.href = "/";
+                disabled={saliendo}
+                onClick={async () => {
+                  if (!confirm("¿Cerrar sesión y borrar los datos de este dispositivo?")) return;
+                  setSaliendo(true);
+                  try {
+                    await createClient().auth.signOut();
+                  } catch {
+                    /* si falla, se sale igualmente: abajo se limpia todo */
                   }
+                  localStorage.clear();
+                  location.href = "/";
                 }}
-                className="w-full rounded-xl px-3 py-3.5 text-left text-sm text-muted hover:bg-bg"
+                className="w-full rounded-xl px-3 py-3.5 text-left text-sm text-muted hover:bg-bg disabled:opacity-50"
               >
-                Cerrar sesión / Reiniciar app
+                {saliendo ? "Cerrando sesión…" : "Cerrar sesión / Reiniciar app"}
               </button>
 
               {/* Derechos del RGPD: llevarte tus datos y que te borren.
