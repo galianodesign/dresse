@@ -264,6 +264,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [user, supabase]
   );
 
+  /**
+   * ¿Se ha caído la subida de una imagen?
+   *
+   * subirImagen devuelve null en dos casos que no son lo mismo: cuando no
+   * había nada que subir, y cuando la subida falló. Se distinguen por la
+   * entrada: si era una foto recién hecha (empieza por "data:") y ha vuelto
+   * null, es que no llegó al servidor.
+   *
+   * Sin esto, una prenda o una publicación se guardaban SIN su foto y en
+   * silencio. Y una prenda sin foto además deja ciega a Madame Dressé, que es
+   * justo para lo que se fotografía.
+   */
+  const subidaFallida = (original: string | null, resultado: string | null) =>
+    !!original?.startsWith("data:") && resultado === null;
+
   /* ── Cargar todo al iniciar sesión ── */
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -479,6 +494,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(p.imagen);
+      // Sin su foto la prenda no sirve para nada, y además deja ciega a
+      // Madame Dressé. Mejor no guardarla y decirlo que guardarla vacía.
+      if (subidaFallida(p.imagen, imagen_url)) {
+        fallo("subir la foto de la prenda");
+        return;
+      }
       const { data, error } = await supabase
         .from("prendas")
         .insert({
@@ -623,6 +644,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(p.imagen);
+      // Publicar un outfit sin foto no tiene sentido en un feed de looks.
+      if (subidaFallida(p.imagen, imagen_url)) {
+        fallo("subir la foto de tu outfit");
+        return;
+      }
       const { data, error } = await supabase
         .from("posts")
         .insert({
@@ -850,6 +876,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     (async () => {
       const imagen_url = await subirImagen(w.imagen);
+      // La foto es prácticamente todo el contenido de un deseo.
+      if (subidaFallida(w.imagen, imagen_url)) {
+        fallo("subir la foto");
+        return;
+      }
       const { data, error } = await supabase
         .from("wishlist")
         .insert({ usuario_id: user.id, nota: w.nota, imagen_url })

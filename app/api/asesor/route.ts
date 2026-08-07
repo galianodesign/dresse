@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { usuarioDeLaPeticion, consumirCupo } from "@/lib/supabase/ruta";
 
 /**
  * Endpoint del asesor Dressé.
@@ -58,8 +59,38 @@ Tu personalidad:
 - Frases cortas y con criterio. Explicas el porqué de tus decisiones: proporción, color, ocasión, tejido.`;
 
 export async function POST(req: NextRequest) {
+  /**
+   * ⚠️ ESTA COMPROBACIÓN NO SE PUEDE QUITAR.
+   *
+   * Hasta el 7 de agosto de 2026 esta ruta no comprobaba nada: cualquiera con
+   * la dirección podía llamarla desde internet, sin cuenta, y gastar el saldo
+   * de Anthropic o usarla como su propia clave de IA gratis. Verificado con
+   * una petición anónima contra producción: devolvió 200 y analizó la imagen.
+   */
+  const uid = await usuarioDeLaPeticion(req);
+  if (!uid) {
+    return NextResponse.json(
+      { error: "Necesitas iniciar sesión para usar Madame Dressé." },
+      { status: 401 }
+    );
+  }
+
   const body = await req.json();
   const { modo, imagen, armario, estilo } = body;
+
+  // Segunda barrera: una cuenta legítima tampoco puede vaciar el saldo. El
+  // tope diario es muy superior a un uso normal, así que solo lo nota quien
+  // esté abusando.
+  const dentroDeCupo = await consumirCupo(req);
+  if (!dentroDeCupo) {
+    return NextResponse.json(
+      {
+        error:
+          "Has hecho muchas consultas hoy. Madame Dressé vuelve a estar disponible mañana.",
+      },
+      { status: 429 }
+    );
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
 

@@ -98,7 +98,15 @@ export default function Asesor() {
           })),
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        // El servidor explica el motivo (sesión caducada, cupo diario
+        // agotado). Decir solo "no se pudo" deja a la usuaria sin saber si
+        // insistir o esperar.
+        const motivo = await res.json().catch(() => null);
+        setError(motivo?.error || "No se pudo analizar la prenda. Inténtalo de nuevo.");
+        setCargando(false);
+        return;
+      }
       const v = await res.json();
       setVeredicto(v);
       addAnalisis({

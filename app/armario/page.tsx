@@ -146,6 +146,10 @@ export default function Armario() {
             body: JSON.stringify({ modo: "catalogar", imagen: paraIA }),
           });
           if (res.ok) return await res.json();
+          // Un 401 o un 429 no son "no la he reconocido": son sesión caducada
+          // o cupo agotado, y conviene decirlo tal cual.
+          const motivo = await res.json().catch(() => null);
+          if (motivo?.error) return { _error: motivo.error as string };
         } catch {}
         return null;
       })();
@@ -168,8 +172,9 @@ export default function Armario() {
       setFotoLimpia(limpia);
       // Si el catalogado falla, la prenda se guarda sin color y eso deja
       // ciega a Madame Dressé. Antes pasaba en silencio: ahora se avisa.
-      if (!sugerencia) avisar("No pude reconocer la prenda; revísala");
-      const s = sugerencia || {};
+      if (sugerencia?._error) avisar(sugerencia._error);
+      else if (!sugerencia) avisar("No pude reconocer la prenda; revísala");
+      const s = sugerencia?._error ? {} : sugerencia || {};
       setNueva({
         id: `p${Date.now()}`,
         nombre: s.nombre || "Nueva prenda",
