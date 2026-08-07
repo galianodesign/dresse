@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { ESTILOS } from "@/lib/data";
 import { t, estiloLabel, ClaveTexto } from "@/lib/i18n";
 import { useLockScroll } from "@/lib/useLockScroll";
+import {
+  IlustracionArmario,
+  IlustracionMadame,
+  IlustracionComunidad,
+} from "@/components/Ilustraciones";
 
 /**
  * Bienvenida de la primera vez.
@@ -23,63 +28,12 @@ import { useLockScroll } from "@/lib/useLockScroll";
 /* Rutas donde nunca debe aparecer, aunque haya sesión */
 const RUTAS_EXCLUIDAS = ["/login", "/auth"];
 
-/* ── Ilustraciones de línea, en la clave sobria del design system ── */
-
-function IlustracionArmario() {
-  return (
-    <svg viewBox="0 0 96 96" className="h-20 w-20" fill="none" aria-hidden>
-      <g stroke="var(--accent)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M48 26a5 5 0 115 5c-3 0-5 2-5 5v3" opacity="0.8" />
-        <path d="M48 39 22 57v4h52v-4L48 39z" />
-        <path d="M30 61v18h36V61" opacity="0.55" />
-        <path d="M48 61v18" opacity="0.35" />
-      </g>
-    </svg>
-  );
-}
-
-function IlustracionMadame() {
-  return (
-    <svg viewBox="0 0 96 96" className="h-20 w-20" fill="none" aria-hidden>
-      <g stroke="var(--accent)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-        <ellipse cx="48" cy="40" rx="20" ry="24" />
-        <ellipse cx="48" cy="40" rx="14" ry="18" opacity="0.4" />
-        <path d="M48 64v18" />
-        <path d="M38 82h20" />
-      </g>
-      <text
-        x="48"
-        y="47"
-        textAnchor="middle"
-        className="font-display"
-        fontSize="20"
-        fill="var(--accent)"
-        opacity="0.75"
-      >
-        D
-      </text>
-    </svg>
-  );
-}
-
-function IlustracionComunidad() {
-  return (
-    <svg viewBox="0 0 96 96" className="h-20 w-20" fill="none" aria-hidden>
-      <g stroke="var(--accent)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="18" y="22" width="26" height="34" rx="3" opacity="0.45" />
-        <rect x="52" y="30" width="26" height="26" rx="3" opacity="0.45" />
-        <rect x="30" y="46" width="34" height="30" rx="3" fill="var(--bg)" />
-        <path d="M47 66c-4-3-7-5-7-8a3.4 3.4 0 016-2 3.4 3.4 0 016 2c0 3-3 5-7 8z" opacity="0.8" />
-      </g>
-    </svg>
-  );
-}
-
 interface Diapositiva {
   titulo: ClaveTexto;
   texto: ClaveTexto;
   // React 19 quitó el espacio de nombres JSX global: hay que tomarlo de React.
-  ilustracion: () => ReactElement;
+  /** Componente de dibujo; acepta un tamaño por className y usa el suyo por defecto */
+  ilustracion: ComponentType<{ className?: string }>;
 }
 
 const DIAPOSITIVAS: Diapositiva[] = [

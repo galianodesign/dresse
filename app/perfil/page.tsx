@@ -836,6 +836,16 @@ export default function Perfil() {
                 setBorrando(true);
                 try {
                   await borrarMiCuenta(user.id);
+                  // La sesión no vive solo en localStorage: está en cookies.
+                  // Sin cerrarla, el navegador sigue creyendo que hay sesión de
+                  // una cuenta que ya no existe y todo falla con un 403.
+                  // Puede fallar (la cuenta ya no está), y da igual: se sale
+                  // igualmente.
+                  try {
+                    await createClient().auth.signOut();
+                  } catch {
+                    /* la cuenta ya no existe; se continúa */
+                  }
                   localStorage.clear();
                   location.href = "/";
                 } catch (e) {

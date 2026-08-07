@@ -36,6 +36,15 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // La portada es para quien todavía no tiene cuenta. A quien ya la tiene no
+  // hay que explicarle qué es Dressé: derecho a su armario. Se decide aquí y
+  // no en la página para que no llegue a verse un parpadeo de la portada.
+  if (path === "/" && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/armario";
+    return NextResponse.redirect(url);
+  }
+
   // Rutas protegidas: redirigir al login si no hay sesión
   const protegidas = ["/armario", "/asesor", "/comunidad", "/perfil"];
   const esProtegida = protegidas.some((r) => path.startsWith(r));
