@@ -177,6 +177,15 @@ export default function Privacidad() {
           privacidad de datos UE-EE. UU., según el proveedor.
         </p>
         <p>
+          <strong>Google es un caso distinto.</strong> Si eliges entrar con tu
+          cuenta de Google, Google no trata tus datos por encargo nuestro: nos
+          confirma que eres quien dices ser y nos facilita tu correo, tu nombre
+          y tu foto de perfil, actuando por su cuenta y bajo sus propias
+          condiciones de privacidad. Lo que Google haga con el hecho de que
+          hayas entrado en Dressé se rige por su política, no por la nuestra. Si
+          prefieres evitarlo, regístrate con tu correo y una contraseña.
+        </p>
+        <p>
           Además, lo que publiques en la comunidad lo verán otras usuarias. Si
           pones tu cuenta en privado desde Ajustes, tu armario y tus
           publicaciones solo serán visibles para quienes apruebes.

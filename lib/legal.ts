@@ -61,12 +61,21 @@ export function complementoTitular(): string {
 }
 
 /**
- * Empresas que tratan datos por encargo nuestro.
+ * Empresas que tratan datos por encargo nuestro (encargados del tratamiento,
+ * RGPD art. 28).
  *
- * ⚠️ Con cada una de ellas hace falta un contrato de encargado del tratamiento
- * (RGPD art. 28). Las cuatro lo ofrecen en sus condiciones, pero hay que
- * aceptarlo expresamente desde el panel de cada una: no basta con usar el
- * servicio.
+ * Las tres incorporan su contrato de encargado por referencia: aceptar sus
+ * condiciones de servicio equivale a firmarlo, y así lo dicen sus propios
+ * textos. No hay nada que firmar aparte.
+ *
+ * ⚠️ Lo que sí conviene es guardar una copia en PDF del contrato de cada una,
+ * con la fecha. El RGPD (art. 5.2) exige poder *demostrar* que existe, y si
+ * mañana cambian el texto de su web no queda constancia de lo que se aceptó.
+ *
+ * Google NO está en esta lista a propósito: en "entrar con Google" no trata
+ * datos por encargo nuestro, sino que nos confirma una identidad actuando por
+ * su cuenta y bajo sus propias condiciones. Se explica aparte en la política
+ * de privacidad, porque meterlo aquí seria decir algo que no es cierto.
  */
 export const ENCARGADOS = [
   {
@@ -82,11 +91,6 @@ export const ENCARGADOS = [
   {
     nombre: "Anthropic",
     para: "Analizar las fotos de tus prendas y generar los consejos de Madame Dressé.",
-    donde: "Estados Unidos, con garantías contractuales para la transferencia",
-  },
-  {
-    nombre: "Google",
-    para: "Permitirte entrar con tu cuenta de Google, si eliges esa opción.",
     donde: "Estados Unidos, con garantías contractuales para la transferencia",
   },
 ];
