@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { EDAD_MINIMA, revisarNacimiento, fechaMaxima } from "@/lib/edad";
 
 export default function Login() {
   const router = useRouter();
@@ -12,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nombre, setNombre] = useState("");
+  const [nacimiento, setNacimiento] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -63,13 +66,22 @@ export default function Login() {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
+    // La edad se comprueba antes de crear nada. Si no llega a los 14, no se
+    // abre la cuenta: es más limpio que crearla y borrarla luego.
+    const problemaEdad = revisarNacimiento(nacimiento);
+    if (problemaEdad) {
+      setError(problemaEdad);
+      return;
+    }
     setCargando(true);
     setError("");
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: nombre },
+        // La fecha viaja con la cuenta para que ControlEdad la recoja al
+        // primer inicio de sesión y no vuelva a preguntar lo mismo.
+        data: { full_name: nombre, nacimiento },
         emailRedirectTo: `${location.origin}/auth/callback`,
       },
     });
@@ -137,12 +149,36 @@ export default function Login() {
         </div>
 
         {modo === "registro" && (
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Tu nombre"
-            className="w-full rounded-2xl border border-line bg-surface px-5 py-4 text-[15px] outline-none transition-colors focus:border-ink"
-          />
+          <>
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Tu nombre"
+              className="w-full rounded-2xl border border-line bg-surface px-5 py-4 text-[15px] outline-none transition-colors focus:border-ink"
+            />
+
+            {/* Se pregunta aquí, antes de crear nada, para no llegar a abrir
+                la cuenta de un menor de 14 y tener que borrarla después. */}
+            <div>
+              <label
+                htmlFor="nacimiento"
+                className="mb-2 block px-1 text-[11px] uppercase tracking-[0.18em] text-muted"
+              >
+                Fecha de nacimiento
+              </label>
+              <input
+                id="nacimiento"
+                type="date"
+                value={nacimiento}
+                max={fechaMaxima()}
+                onChange={(e) => { setNacimiento(e.target.value); setError(""); }}
+                className="w-full rounded-2xl border border-line bg-surface px-5 py-4 text-[15px] outline-none transition-colors focus:border-ink"
+              />
+              <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted">
+                Hay que tener al menos {EDAD_MINIMA} años. No se muestra a nadie.
+              </p>
+            </div>
+          </>
         )}
 
         <input
@@ -187,8 +223,20 @@ export default function Login() {
         </button>
       </div>
 
-      <p className="text-center text-xs text-muted">
-        Al continuar aceptas nuestros términos de uso y política de privacidad.
+      {/* Estos dos enlaces son obligatorios y tienen que poder leerse ANTES de
+          registrarse, no después. Durante meses esta frase prometió dos páginas
+          que no existían. */}
+      <p className="text-center text-xs leading-relaxed text-muted">
+        Al continuar aceptas los{" "}
+        <Link href="/legal/terminos" className="underline hover:text-ink">
+          términos de uso
+        </Link>{" "}
+        y la{" "}
+        <Link href="/legal/privacidad" className="underline hover:text-ink">
+          política de privacidad
+        </Link>
+        . Tus fotos se analizan con inteligencia artificial para reconocer tus
+        prendas.
       </p>
     </main>
   );

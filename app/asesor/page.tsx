@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import BottomNav from "@/components/BottomNav";
 import Header from "@/components/Header";
 import { useStore } from "@/lib/store";
@@ -12,7 +13,7 @@ import Toast from "@/components/Toast";
 interface Veredicto {
   compra: boolean;
   resumen: string;
-  combinaciones: { titulo: string; prendas: string[] }[];
+  combinaciones: { titulo: string; prendaIds: string[] }[];
   aviso?: string;
 }
 
@@ -79,10 +80,17 @@ export default function Asesor() {
           imagen: paraIA,
           estilo: perfil.estilo,
           armario: prendas.map((p) => ({
+            // El id permite saber con certeza a qué prenda se refiere cada
+            // combinación. Antes iban por nombre y dos prendas parecidas se
+            // volvían indistinguibles.
+            id: p.id,
             nombre: p.nombre,
             categoria: p.categoria,
             color: p.color,
             estilo: p.estilo,
+            // Para que vea tu ropa de verdad al juzgar si la prenda encaja:
+            // toda la pregunta es si combina con lo que ya tienes.
+            imagen: p.imagen,
           })),
         }),
       });
@@ -124,6 +132,9 @@ export default function Asesor() {
             categoria: p.categoria,
             color: p.color,
             estilo: p.estilo,
+            // La URL pública de la foto: con esto Madame Dressé ve la prenda
+            // de verdad en vez de fiarse solo del nombre y el color.
+            imagen: p.imagen,
           })),
         }),
       });
@@ -146,6 +157,17 @@ export default function Asesor() {
         titulo="Madame Dressé"
         subtitulo="Tu estilista personal. Te dice qué comprar y qué ponerte, con lo que ya tienes."
       />
+
+      {/* El reglamento europeo de IA obliga a decir claramente que quien
+          responde es una máquina, ahí donde se interactúa con ella y no
+          escondido en un documento legal que nadie abre. */}
+      <p className="mb-5 rounded-[var(--radius-card)] border border-line bg-[var(--accent-soft)] px-4 py-3 text-xs leading-relaxed text-muted">
+        Madame Dressé es una inteligencia artificial, no una persona. Puede
+        equivocarse, y tus fotos se envían a analizar para poder responderte.{" "}
+        <Link href="/legal/privacidad" className="underline hover:text-ink">
+          Cómo funciona
+        </Link>
+      </p>
 
       {/* Qué necesitas hoy */}
       <div className="mb-6 flex gap-2">
@@ -353,12 +375,37 @@ export default function Asesor() {
                 </p>
               </div>
 
-              {veredicto.combinaciones.map((c, i) => (
-                <div key={i} className="hang-tag px-4 py-4 pt-7">
-                  <p className="font-display text-lg">{c.titulo}</p>
-                  <p className="mt-1 text-sm text-muted">{c.prendas.join(" + ")}</p>
-                </div>
-              ))}
+              {veredicto.combinaciones.map((c, i) => {
+                const piezas = (c.prendaIds || [])
+                  .map((id) => prendas.find((p) => p.id === id))
+                  .filter((p): p is NonNullable<typeof p> => !!p);
+                return (
+                  <div key={i} className="hang-tag px-4 py-4 pt-7">
+                    <p className="font-display text-lg">{c.titulo}</p>
+                    <p className="mt-1 text-sm text-muted">
+                      {piezas.map((p) => p.nombre).join(" + ")}
+                    </p>
+                    {/* Ahora que van por id se pueden enseñar las prendas de
+                        verdad, igual que en "qué me pongo". */}
+                    {piezas.some((p) => p.imagen) && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto">
+                        {piezas.map(
+                          (p) =>
+                            p.imagen && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={p.id}
+                                src={p.imagen}
+                                alt={p.nombre}
+                                className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                              />
+                            )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {veredicto.aviso && (
                 <p className="text-xs leading-relaxed text-muted">{veredicto.aviso}</p>

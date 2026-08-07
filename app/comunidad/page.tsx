@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
 import BottomNav from "@/components/BottomNav";
+import Toast from "@/components/Toast";
+import { firmarRutas, firmarUna, resolver } from "@/lib/almacen";
 import Header from "@/components/Header";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import { createClient } from "@/lib/supabase/client";
@@ -43,6 +45,14 @@ export default function Comunidad() {
   const [guardarAbierto, setGuardarAbierto] = useState(false);
   const [enTableros, setEnTableros] = useState<string[]>([]);
   const [nuevoTablero, setNuevoTablero] = useState("");
+  const [toast, setToast] = useState("");
+
+  /** Confirmación breve, con el estilo de la app en vez del cuadro del navegador */
+  function avisar(msg: string) {
+    setToast("");
+    requestAnimationFrame(() => setToast(msg));
+    setTimeout(() => setToast(""), 1900);
+  }
 
   async function abrirGuardar(postId: string) {
     setGuardarAbierto(true);
@@ -82,7 +92,7 @@ export default function Comunidad() {
       id,
       username: p?.username || "dresse",
       nombre: p?.nombre || "",
-      foto: p?.foto_url || null,
+      foto: await firmarUna(supabase, p?.foto_url),
       privado: !!p?.privado,
       seguidores: fc.count || 0,
       siguiendo: fg.count || 0,
@@ -99,9 +109,14 @@ export default function Comunidad() {
       return;
     }
     const { data: perfs } = await supabase.from("perfiles").select("id, username, foto_url").in("id", ids);
+    const firmas = await firmarRutas(supabase, (perfs || []).map((p: any) => p.foto_url));
     setListaAbierta({
       titulo,
-      gente: (perfs || []).map((p: any) => ({ id: p.id, username: p.username || "dresse", foto: p.foto_url })),
+      gente: (perfs || []).map((p: any) => ({
+        id: p.id,
+        username: p.username || "dresse",
+        foto: resolver(firmas, p.foto_url),
+      })),
     });
   }
 
@@ -143,14 +158,22 @@ export default function Comunidad() {
       perfilesExtra = data || [];
     }
 
+    const todosPerfiles = [...(perfilesRes.data || []), ...perfilesExtra];
+    // Una sola firma para todo el feed: fotos de las publicaciones y de los
+    // perfiles de quienes publican o comentan.
+    const firmas = await firmarRutas(supabase, [
+      ...rows.map((r: any) => r.imagen_url),
+      ...todosPerfiles.map((p: any) => p.foto_url),
+    ]);
+
     const nombrePor: Record<string, string> = {};
     const fotoPor: Record<string, string | null> = {};
-    [...(perfilesRes.data || []), ...perfilesExtra].forEach((p: any) => {
+    todosPerfiles.forEach((p: any) => {
       nombrePor[p.id] =
         p.username ||
         (p.nombre ? p.nombre.toLowerCase().replace(/\s+/g, ".") : "") ||
         "dresse";
-      fotoPor[p.id] = p.foto_url || null;
+      fotoPor[p.id] = resolver(firmas, p.foto_url);
     });
 
     const likesPor: Record<string, string[]> = {};
@@ -176,7 +199,7 @@ export default function Comunidad() {
         fotoAutor: fotoPor[r.usuario_id] || null,
         titulo: r.titulo,
         descripcion: r.descripcion || "",
-        imagen: r.imagen_url,
+        imagen: resolver(firmas, r.imagen_url),
         estilo: r.estilo,
         fecha: r.creado_en,
         likes: (likesPor[r.id] || []).length,
@@ -437,7 +460,7 @@ export default function Comunidad() {
                     navigator.share({ title: "Dressé", text: texto, url: location.origin }).catch(() => {});
                   } else {
                     navigator.clipboard?.writeText(`${texto} ${location.origin}`);
-                    alert("Copiado al portapapeles");
+                    avisar("Copiado al portapapeles");
                   }
                 }}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-surface py-3 text-sm"
@@ -737,6 +760,7 @@ export default function Comunidad() {
         </div>
       )}
 
+      {toast && <Toast mensaje={toast} />}
       <BottomNav />
     </main>
   );

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import PerfilPublico from "@/components/PerfilPublico";
 import { useLockScroll } from "@/lib/useLockScroll";
 import BotonCerrar, { CabeceraPanel } from "@/components/BotonCerrar";
+import { firmarRutas, resolver } from "@/lib/almacen";
+import { descargarMisDatos, borrarMiCuenta } from "@/lib/misDatos";
 import BottomNav from "@/components/BottomNav";
 import ThemePicker from "@/components/ThemePicker";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
@@ -22,7 +24,8 @@ type Panel =
   | "editar"
   | "tema"
   | "plan"
-  | "publicar";
+  | "publicar"
+  | "borrar";
 
 export default function Perfil() {
   const {
@@ -75,8 +78,9 @@ export default function Perfil() {
     const postIds = Object.values(primero);
     if (postIds.length) {
       const { data: ps } = await supabase.from("posts").select("id, imagen_url").in("id", postIds);
+      const firmas = await firmarRutas(supabase, (ps || []).map((p: any) => p.imagen_url));
       const imgPor: Record<string, string | null> = {};
-      (ps || []).forEach((p: any) => (imgPor[p.id] = p.imagen_url));
+      (ps || []).forEach((p: any) => (imgPor[p.id] = resolver(firmas, p.imagen_url)));
       const port: Record<string, string | null> = {};
       Object.entries(primero).forEach(([tid, pid]) => (port[tid] = imgPor[pid] || null));
       setPortadas(port);
@@ -91,7 +95,14 @@ export default function Perfil() {
     const ids = (data || []).map((r: any) => r.post_id);
     if (!ids.length) return;
     const { data: ps } = await supabase.from("posts").select("id, titulo, imagen_url").in("id", ids);
-    setPostsTablero((ps || []).map((p: any) => ({ id: p.id, titulo: p.titulo, imagen: p.imagen_url })));
+    const firmas = await firmarRutas(supabase, (ps || []).map((p: any) => p.imagen_url));
+    setPostsTablero(
+      (ps || []).map((p: any) => ({
+        id: p.id,
+        titulo: p.titulo,
+        imagen: resolver(firmas, p.imagen_url),
+      }))
+    );
   }
   const [panel, setPanel] = useState<Panel>(null);
   const [postAbierto, setPostAbierto] = useState<PostPropio | null>(null);
@@ -111,14 +122,21 @@ export default function Perfil() {
       return;
     }
     const { data: perfs } = await supabase.from("perfiles").select("id, username, foto_url").in("id", ids);
+    const firmas = await firmarRutas(supabase, (perfs || []).map((p: any) => p.foto_url));
     setListaAbierta({
       titulo,
-      gente: (perfs || []).map((p: any) => ({ id: p.id, username: p.username || "dresse", foto: p.foto_url })),
+      gente: (perfs || []).map((p: any) => ({
+        id: p.id,
+        username: p.username || "dresse",
+        foto: resolver(firmas, p.foto_url),
+      })),
     });
   }
   const [likesPropios, setLikesPropios] = useState<Record<string, boolean>>({});
   const { logout } = useAuth();
   const [toast, setToast] = useState("");
+  const [confirmaBorrado, setConfirmaBorrado] = useState("");
+  const [borrando, setBorrando] = useState(false);
   const [racha, setRacha] = useState(1);
 
   useEffect(() => {
@@ -739,7 +757,97 @@ export default function Perfil() {
               >
                 Cerrar sesión / Reiniciar app
               </button>
+
+              {/* Derechos del RGPD: llevarte tus datos y que te borren.
+                  No son opcionales para una app con datos personales. */}
+              <div className="mt-2 border-t border-line pt-2">
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    setPanel(null);
+                    avisar("Preparando tus datos…");
+                    try {
+                      await descargarMisDatos(user.id);
+                    } catch {
+                      avisar("No se pudieron reunir tus datos");
+                    }
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-3.5 text-left text-sm hover:bg-bg"
+                >
+                  Descargar mis datos <span className="text-muted">›</span>
+                </button>
+
+                <button
+                  onClick={() => setPanel("borrar")}
+                  className="w-full rounded-xl px-3 py-3.5 text-left text-sm text-red-600 hover:bg-bg"
+                >
+                  Borrar mi cuenta
+                </button>
+              </div>
+
+              {/* Los textos legales tienen que seguir siendo accesibles después
+                  de registrarse, no solo en la pantalla de acceso. */}
+              <div className="mt-2 flex gap-4 border-t border-line px-3 pt-4 text-xs text-muted">
+                <a href="/legal/privacidad" className="underline hover:text-ink">
+                  Privacidad
+                </a>
+                <a href="/legal/terminos" className="underline hover:text-ink">
+                  Términos de uso
+                </a>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Borrar cuenta ──
+          Es irreversible y borra fotos incluidas, así que no basta un
+          "¿estás seguro?": hay que escribir BORRAR para confirmar. */}
+      {panel === "borrar" && (
+        <div className="overlay fixed inset-0 z-50 flex items-end bg-ink/40" onClick={() => !borrando && setPanel(null)}>
+          <div className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10" onClick={(e) => e.stopPropagation()}>
+            <CabeceraPanel titulo="Borrar mi cuenta" onCerrar={() => setPanel(null)} />
+
+            <p className="text-sm leading-relaxed text-muted">
+              Se borrará <span className="text-ink">para siempre</span> tu
+              armario, tus looks, tu wishlist, tus publicaciones, tus tableros,
+              tus comentarios y todas tus fotos. No se puede deshacer y no
+              guardamos ninguna copia.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              Si solo quieres una copia de tus datos, cierra esto y usa
+              «Descargar mis datos» antes.
+            </p>
+
+            <label className="mt-5 block text-[11px] uppercase tracking-[0.18em] text-muted">
+              Escribe BORRAR para confirmar
+            </label>
+            <input
+              value={confirmaBorrado}
+              onChange={(e) => setConfirmaBorrado(e.target.value)}
+              autoCapitalize="characters"
+              className="mt-2 w-full rounded-xl border border-line bg-bg px-4 py-3 text-sm outline-none focus:border-accent"
+            />
+
+            <button
+              disabled={confirmaBorrado.trim().toUpperCase() !== "BORRAR" || borrando}
+              onClick={async () => {
+                if (!user) return;
+                setBorrando(true);
+                try {
+                  await borrarMiCuenta(user.id);
+                  localStorage.clear();
+                  location.href = "/";
+                } catch (e) {
+                  setBorrando(false);
+                  avisar(e instanceof Error ? e.message : "No se pudo borrar");
+                }
+              }}
+              className="btn-primary mt-5 disabled:opacity-40"
+              style={{ background: "#b3261e" }}
+            >
+              {borrando ? "Borrando…" : "Borrar mi cuenta para siempre"}
+            </button>
           </div>
         </div>
       )}

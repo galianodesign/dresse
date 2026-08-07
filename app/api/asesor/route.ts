@@ -17,6 +17,16 @@ import { NextRequest, NextResponse } from "next/server";
 const MODELO = "claude-sonnet-4-6";
 
 /**
+ * Tope de fotos que se le enseñan a Madame Dressé de una vez.
+ *
+ * Cada foto cuesta dinero (alrededor de mil tokens), así que esto acota lo que
+ * puede costar una consulta. El plan gratuito permite 20 prendas, de modo que
+ * en la práctica casi nadie lo alcanza; existe por las cuentas Premium, que no
+ * tienen límite de armario.
+ */
+const MAX_FOTOS = 24;
+
+/**
  * Madame Dressé: la estilista de la casa. Sofisticada por fuera, amiga por
  * dentro. Habla en español, tutea, es directa y cálida, con criterio real de
  * moda y algún toque de humor. Nunca adula por adular.
@@ -85,23 +95,62 @@ export async function POST(req: NextRequest) {
   }
   const [, mediaType, data] = match;
 
+  // Fotos del armario que se le enseñan al valorar una compra. Solo en modo
+  // "asesorar": catalogar mira una prenda suelta y no necesita el armario.
+  const fotosArmario =
+    modo === "catalogar" || !Array.isArray(armario)
+      ? []
+      : armario
+          .filter((p: any) => typeof p.imagen === "string" && /^https?:\/\//.test(p.imagen))
+          .slice(0, MAX_FOTOS);
+
   const prompt =
     modo === "catalogar"
       ? `Analiza esta foto de una prenda de ropa. Responde SOLO con JSON válido, sin markdown ni explicaciones, con esta forma exacta:
 {"nombre": "nombre corto y natural de la prenda en español", "categoria": "top|pantalon|calzado|abrigo|accesorio", "color": "color principal", "estilo": "Minimalista|Colorida|Elegante|Casual|Streetwear|Romántica"}`
       : `${VOZ}
 
-La persona está pensando en comprarse la prenda de la foto. Su estilo personal es "${estilo || "no definido"}". Este es su armario actual:
+La persona está pensando en comprarse la prenda de LA PRIMERA foto. Su estilo personal es "${estilo || "no definido"}". Este es su armario actual:
 
-${JSON.stringify(armario, null, 2)}
+${JSON.stringify(
+  (Array.isArray(armario) ? armario : []).map(({ imagen, ...resto }: any) => resto),
+  null,
+  2
+)}
+${
+  fotosArmario.length
+    ? `
+Después de este texto verás las fotos de ${fotosArmario.length} prendas de su armario, cada una con su nombre delante. NO confundas ninguna de ellas con la prenda que quiere comprarse: esa es la primera foto, la que va antes de este texto. Mira su ropa de verdad —color, estampado, tejido, corte— para juzgar si la prenda nueva encaja. Si lo que ves no coincide con la descripción escrita, fíate de la foto.`
+    : ""
+}
 
-Decide si la compra tiene sentido: ¿combina con lo que ya tiene? ¿cubre un hueco real o duplica algo que ya posee? Propón combinaciones concretas usando SOLO prendas que existan en su armario, llamándolas por su nombre exacto. Si no combina con casi nada, díselo claramente.
+Decide si la compra tiene sentido: ¿combina con lo que ya tiene? ¿cubre un hueco real o duplica algo que ya posee? Propón combinaciones concretas usando SOLO prendas que existan en su armario, con sus id exactos. Nunca inventes prendas que no estén. Si no combina con casi nada, díselo claramente.
 
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
-{"compra": true/false, "resumen": "2-3 frases con tu voz de Madame Dressé explicando el veredicto", "combinaciones": [{"titulo": "nombre del look", "prendas": ["nombre exacto 1", "nombre exacto 2"]}], "aviso": "opcional: qué le falta en el armario para sacarle más partido"}`;
+{"compra": true/false, "resumen": "2-3 frases con tu voz de Madame Dressé explicando el veredicto", "combinaciones": [{"titulo": "nombre del look", "prendaIds": ["id1", "id2"]}], "aviso": "opcional: qué le falta en el armario para sacarle más partido"}`;
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  // La prenda que quiere comprarse va SIEMPRE primera, antes del texto, para
+  // que no se confunda con las del armario que vienen después.
+  const laPrendaNueva = {
+    type: "image",
+    source: { type: "base64", media_type: mediaType, data },
+  };
+
+  const contenidoBase: any[] = [laPrendaNueva, { type: "text", text: prompt }];
+  const contenidoConArmario: any[] = [...contenidoBase];
+  for (const p of fotosArmario) {
+    contenidoConArmario.push({ type: "text", text: `De su armario — ${p.nombre}:` });
+    contenidoConArmario.push({ type: "image", source: { type: "url", url: p.imagen } });
+  }
+  if (fotosArmario.length) {
+    contenidoConArmario.push({
+      type: "text",
+      text: "Ahora responde SOLO con el JSON pedido, sin texto alrededor.",
+    });
+  }
+
+  const pedir = (contenido: any[]) =>
+    fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -111,20 +160,19 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
       body: JSON.stringify({
         model: MODELO,
         max_tokens: 1024,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: mediaType, data },
-              },
-              { type: "text", text: prompt },
-            ],
-          },
-        ],
+        messages: [{ role: "user", content: contenido }],
       }),
     });
+
+  try {
+    let res = await pedir(contenidoConArmario);
+
+    // Si alguna foto del armario no se puede descargar, la petición entera
+    // falla. Se reintenta sin ellas antes que dejarla sin veredicto.
+    if (!res.ok && fotosArmario.length) {
+      console.error("Fallo con fotos del armario, reintentando sin ellas:", await res.text());
+      res = await pedir(contenidoBase);
+    }
 
     if (!res.ok) {
       const err = await res.text();
@@ -135,7 +183,22 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
     const dataRes = await res.json();
     const texto: string = dataRes.content?.[0]?.text || "";
     const limpio = texto.replace(/```json|```/g, "").trim();
-    return NextResponse.json(JSON.parse(limpio));
+    const parsed = JSON.parse(limpio);
+
+    // Descartar ids inventados, igual que en el generador de outfits
+    if (modo !== "catalogar" && Array.isArray(parsed.combinaciones)) {
+      const idsValidos = new Set(
+        (Array.isArray(armario) ? armario : []).map((p: any) => p.id)
+      );
+      parsed.combinaciones = parsed.combinaciones
+        .map((c: any) => ({
+          ...c,
+          prendaIds: (c.prendaIds || []).filter((id: string) => idsValidos.has(id)),
+        }))
+        .filter((c: any) => c.prendaIds.length > 0);
+    }
+
+    return NextResponse.json(parsed);
   } catch (e) {
     console.error("Fallo procesando la respuesta del asesor:", e);
     return NextResponse.json({ error: "Error del asesor" }, { status: 500 });
@@ -161,12 +224,25 @@ async function generarOutfits(
     );
   }
 
+  // Prendas cuya foto puede ver Madame Dressé. Se le pasa la URL pública de
+  // Supabase y es la API de Anthropic quien la descarga: así la petición
+  // sigue pesando cuatro líneas y no chocamos con el límite de 4,5 MB.
+  const conFoto = armario
+    .filter((p: any) => typeof p.imagen === "string" && /^https?:\/\//.test(p.imagen))
+    .slice(0, MAX_FOTOS);
+
   const prompt = `${VOZ}
 
 Tu tarea: vestir a esta persona para "${ocasion || "un día cualquiera"}" usando SOLO la ropa que ya tiene. Su estilo personal es "${estilo || "no definido"}".
 
 Su armario (usa los id exactos):
-${JSON.stringify(armario, null, 2)}
+${JSON.stringify(armario.map(({ imagen, ...resto }: any) => resto), null, 2)}
+${
+  conFoto.length
+    ? `
+Después de este texto verás las fotos de ${conFoto.length} de esas prendas, cada una precedida por su id. Míralas: fíjate en el color real, el estampado, el tejido y el corte, que dicen mucho más que el nombre. Si lo que ves no coincide con la descripción, fíate de la foto.`
+    : ""
+}
 
 Reglas:
 - Propón entre 2 y 3 outfits completos y distintos entre sí.
@@ -178,8 +254,23 @@ Reglas:
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"intro": "1-2 frases tuyas presentando lo que has preparado", "outfits": [{"titulo": "nombre corto y con encanto del look", "prendaIds": ["id1", "id2"], "porque": "por qué funciona"}]}`;
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const contenidoConFotos: any[] = [{ type: "text", text: prompt }];
+  for (const p of conFoto) {
+    contenidoConFotos.push({ type: "text", text: `id ${p.id} — ${p.nombre}:` });
+    contenidoConFotos.push({
+      type: "image",
+      source: { type: "url", url: p.imagen },
+    });
+  }
+  if (conFoto.length) {
+    contenidoConFotos.push({
+      type: "text",
+      text: "Ahora responde SOLO con el JSON pedido, sin texto alrededor.",
+    });
+  }
+
+  const pedir = (contenido: any) =>
+    fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -189,9 +280,20 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
       body: JSON.stringify({
         model: MODELO,
         max_tokens: 1400,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: contenido }],
       }),
     });
+
+  try {
+    let res = await pedir(contenidoConFotos);
+
+    // Si alguna foto no se puede descargar, la petición entera falla. Antes de
+    // dejar a la usuaria sin outfit, se reintenta con el armario solo en texto,
+    // que es exactamente como funcionaba hasta ahora.
+    if (!res.ok && conFoto.length) {
+      console.error("Fallo con fotos, reintentando sin ellas:", await res.text());
+      res = await pedir(prompt);
+    }
 
     if (!res.ok) {
       console.error("Error de la API de Anthropic:", await res.text());
