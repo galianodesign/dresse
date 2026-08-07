@@ -17,6 +17,22 @@ import { NextRequest, NextResponse } from "next/server";
 const MODELO = "claude-sonnet-4-6";
 
 /**
+ * Los únicos valores que el armario sabe filtrar. Están duplicados aquí a
+ * propósito y no importados de lib/data: si algún día cambian allí, esta
+ * lista tiene que revisarse a mano, porque cambiarla sola dejaría prendas
+ * antiguas guardadas con categorías que ya no existirían.
+ */
+const CATEGORIAS_VALIDAS = ["top", "pantalon", "calzado", "abrigo", "accesorio"];
+const ESTILOS_VALIDOS = [
+  "Minimalista",
+  "Colorida",
+  "Elegante",
+  "Casual",
+  "Streetwear",
+  "Romántica",
+];
+
+/**
  * Tope de fotos que se le enseñan a Madame Dressé de una vez.
  *
  * Cada foto cuesta dinero (alrededor de mil tokens), así que esto acota lo que
@@ -184,6 +200,23 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
     const texto: string = dataRes.content?.[0]?.text || "";
     const limpio = texto.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(limpio);
+
+    // La categoría se le pide a la IA en el prompt, pero pedirla no es
+    // garantizarla. Si devuelve cualquier otra cosa ("vestido", "zapatos"),
+    // la prenda se guarda con una categoría que no existe y desaparece de
+    // todas las pestañas del armario menos "Todas", sin ningún aviso. Se
+    // fuerza a la lista buena antes de que llegue a guardarse.
+    if (modo === "catalogar") {
+      if (!CATEGORIAS_VALIDAS.includes(parsed.categoria)) {
+        console.warn(`[Dressé] categoría inesperada de la IA: ${parsed.categoria}`);
+        parsed.categoria = "top";
+      }
+      if (!ESTILOS_VALIDOS.includes(parsed.estilo)) {
+        // El estilo es menos grave (solo afecta al filtro), pero se deja
+        // vacío en vez de guardar una etiqueta que no case con nada.
+        parsed.estilo = "";
+      }
+    }
 
     // Descartar ids inventados, igual que en el generador de outfits
     if (modo !== "catalogar" && Array.isArray(parsed.combinaciones)) {

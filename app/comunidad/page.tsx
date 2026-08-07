@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
+import { plural } from "@/lib/plural";
 import { useLockScroll } from "@/lib/useLockScroll";
 import { getTheme } from "@/lib/themes";
 
@@ -216,28 +217,63 @@ export default function Comunidad() {
     setAbierto((prev) => (prev && prev.id === id ? { ...prev, ...cambios } : prev));
   }
 
+  /**
+   * Los dos siguientes pintan el cambio antes de guardarlo, para que la app
+   * responda al instante. El precio es que hay que DESHACERLO si la escritura
+   * falla: si no, se queda en pantalla un "me gusta" o un comentario que en
+   * realidad no existe, y desaparece al recargar sin que nadie lo entienda.
+   */
+
   async function toggleLike(p: PostFeed) {
     if (!user) return;
+    const comoEstaba = { yoDiLike: p.yoDiLike, likes: p.likes };
+
     if (p.yoDiLike) {
       actualizarPost(p.id, { yoDiLike: false, likes: Math.max(0, p.likes - 1) });
-      await supabase.from("post_likes").delete().eq("post_id", p.id).eq("usuario_id", user.id);
+      const { error } = await supabase
+        .from("post_likes")
+        .delete()
+        .eq("post_id", p.id)
+        .eq("usuario_id", user.id);
+      if (error) {
+        actualizarPost(p.id, comoEstaba);
+        avisar("No se pudo quitar tu me gusta");
+      }
     } else {
       actualizarPost(p.id, { yoDiLike: true, likes: p.likes + 1 });
-      await supabase.from("post_likes").insert({ post_id: p.id, usuario_id: user.id });
+      const { error } = await supabase
+        .from("post_likes")
+        .insert({ post_id: p.id, usuario_id: user.id });
+      if (error) {
+        actualizarPost(p.id, comoEstaba);
+        avisar("No se pudo guardar tu me gusta");
+      }
     }
   }
 
   async function enviarComentario(p: PostFeed) {
     const texto = nuevoComentario.trim();
     if (!texto || !user) return;
+
+    const comentariosAntes = p.comentarios;
     setNuevoComentario("");
-    const nuevo = { username: perfil.username || "tú", texto };
-    actualizarPost(p.id, { comentarios: [...p.comentarios, nuevo] });
-    await supabase.from("comentarios").insert({
+    actualizarPost(p.id, {
+      comentarios: [...p.comentarios, { username: perfil.username || "tú", texto }],
+    });
+
+    const { error } = await supabase.from("comentarios").insert({
       post_id: p.id,
       usuario_id: user.id,
       texto,
     });
+
+    if (error) {
+      // Se le devuelve lo que había escrito: perder un comentario recién
+      // tecleado por un fallo de red es de las cosas que más molestan.
+      actualizarPost(p.id, { comentarios: comentariosAntes });
+      setNuevoComentario(texto);
+      avisar("No se pudo publicar tu comentario");
+    }
   }
 
   const visibles = posts.filter((p) => {
@@ -537,14 +573,14 @@ export default function Comunidad() {
                           onClick={() => abrirLista("Seguidores", p.id, "seguidores")}
                           className={puedeVerListas ? "underline underline-offset-2" : "opacity-70"}
                         >
-                          {p.seguidores} seguidores
+                          {plural(p.seguidores, "seguidor", "seguidores")}
                         </button>
                         <button
                           disabled={!puedeVerListas}
                           onClick={() => abrirLista("Seguidos", p.id, "seguidos")}
                           className={puedeVerListas ? "underline underline-offset-2" : "opacity-70"}
                         >
-                          {p.siguiendo} seguidos
+                          {plural(p.siguiendo, "seguido")}
                         </button>
                       </div>
                       {p.privado && (

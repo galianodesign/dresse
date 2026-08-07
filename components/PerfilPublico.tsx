@@ -8,6 +8,7 @@ import { Flourish } from "@/components/ThemeDecor";
 import { CabeceraPanel } from "@/components/BotonCerrar";
 import { firmarRutas, resolver } from "@/lib/almacen";
 import { useLockScroll } from "@/lib/useLockScroll";
+import { plural } from "@/lib/plural";
 
 interface Datos {
   username: string;
@@ -140,14 +141,14 @@ export default function PerfilPublico({
                     onClick={() => abrirLista("Seguidores", "seguidores")}
                     className={puedeVer ? "underline underline-offset-2" : "opacity-70"}
                   >
-                    {datos.seguidores} seguidores
+                    {plural(datos.seguidores, "seguidor", "seguidores")}
                   </button>
                   <button
                     disabled={!puedeVer}
                     onClick={() => abrirLista("Seguidos", "seguidos")}
                     className={puedeVer ? "underline underline-offset-2" : "opacity-70"}
                   >
-                    {datos.siguiendo} seguidos
+                    {plural(datos.siguiendo, "seguido")}
                   </button>
                 </div>
                 {datos.privado && (

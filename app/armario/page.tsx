@@ -9,6 +9,7 @@ import PrendaCard from "@/components/PrendaCard";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import Toast from "@/components/Toast";
 import { useStore } from "@/lib/store";
+import { plural } from "@/lib/plural";
 import { CATEGORIAS, Categoria, ESTILOS, Prenda, Look, diasSinUsar } from "@/lib/data";
 import { t, ClaveTexto } from "@/lib/i18n";
 import { comprimirADataUrl } from "@/lib/imagen";
@@ -203,7 +204,7 @@ export default function Armario() {
 
       <Header
         titulo="Mi armario"
-        subtitulo={`${prendas.length} prendas · ${looks.length} looks${!perfil.premium ? ` · ${Math.max(0, LIMITE_GRATIS - prendas.length)} libres en tu plan` : ""}`}
+        subtitulo={`${plural(prendas.length, "prenda")} · ${plural(looks.length, "look")}${!perfil.premium ? ` · ${plural(Math.max(0, LIMITE_GRATIS - prendas.length), "libre")} en tu plan` : ""}`}
       />
 
       {/* Guía de primeros pasos: desaparece sola al completar los tres */}
@@ -226,7 +227,7 @@ export default function Armario() {
         >
           <span className="text-xl">🧥</span>
           <p className="text-sm leading-snug text-muted">
-            Llevas <span className="font-medium text-ink">{olvidada.d} días</span> sin
+            Llevas <span className="font-medium text-ink">{plural(olvidada.d, "día")}</span> sin
             ponerte <span className="font-medium text-ink">{olvidada.p.nombre}</span>.
             ¿Le das una oportunidad esta semana?
           </p>
@@ -890,12 +891,19 @@ export default function Armario() {
               })}
             </div>
 
+            {/* Un botón apagado sin decir por qué es un callejón sin salida:
+                el aviso de arriba ya no se ve después de bajar por la lista de
+                prendas. La propia etiqueta dice qué falta. */}
             <button
               onClick={guardarLook}
               disabled={lookSel.length < 2 || !lookNombre.trim()}
               className="btn-primary mt-5"
             >
-              Guardar look ({lookSel.length} prendas)
+              {lookSel.length < 2
+                ? `Elige ${2 - lookSel.length} ${lookSel.length === 1 ? "prenda más" : "prendas"}`
+                : !lookNombre.trim()
+                ? "Ponle un nombre al look"
+                : `Guardar look (${plural(lookSel.length, "prenda")})`}
             </button>
           </div>
         </div>

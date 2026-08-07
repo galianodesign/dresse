@@ -13,6 +13,7 @@ import ThemePicker from "@/components/ThemePicker";
 import { Flourish, SectionBackdrop } from "@/components/ThemeDecor";
 import PrendaCard from "@/components/PrendaCard";
 import { useStore } from "@/lib/store";
+import { plural } from "@/lib/plural";
 import { CATEGORIAS, PostPropio } from "@/lib/data";
 import { THEMES, getTheme } from "@/lib/themes";
 import Toast from "@/components/Toast";
@@ -459,7 +460,7 @@ export default function Perfil() {
                           </svg>
                         )}
                       </p>
-                      <p className="text-[12px] text-muted">{conteos[tb.id] || 0} looks</p>
+                      <p className="text-[12px] text-muted">{plural(conteos[tb.id] || 0, "look")}</p>
                     </div>
                   </button>
                 ))}
@@ -533,8 +534,8 @@ export default function Perfil() {
               })}
             </div>
             <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
-              {prendas.length} prendas · {looks.length} looks · {favoritas.length} favoritas ·{" "}
-              {misPosts.length} posts publicados
+              {plural(prendas.length, "prenda")} · {plural(looks.length, "look")} · {plural(favoritas.length, "favorita")} ·{" "}
+              {plural(misPosts.length, "post")} {misPosts.length === 1 ? "publicado" : "publicados"}
             </p>
 
             {(() => {
@@ -562,7 +563,7 @@ export default function Perfil() {
                     </p>
                     <p className="mt-1 text-sm leading-relaxed text-muted">
                       🔥 Racha de <span className="text-ink">{racha} {racha === 1 ? "día" : "días"}</span> ·{" "}
-                      {usadasEsteMes} prendas usadas este mes · {looks.length} looks creados
+                      {plural(usadasEsteMes, "prenda")} {usadasEsteMes === 1 ? "usada" : "usadas"} este mes · {plural(looks.length, "look")} {looks.length === 1 ? "creado" : "creados"}
                     </p>
                   </div>
 
@@ -1175,7 +1176,7 @@ export default function Perfil() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-display text-3xl">{tableroAbierto.nombre}</h2>
-                <p className="text-[12px] text-muted">{postsTablero.length} looks guardados</p>
+                <p className="text-[12px] text-muted">{plural(postsTablero.length, "look")} {postsTablero.length === 1 ? "guardado" : "guardados"}</p>
               </div>
               <button onClick={() => setTableroAbierto(null)} className="btn-cerrar shrink-0" aria-label="Cerrar">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
