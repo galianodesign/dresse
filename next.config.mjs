@@ -1,5 +1,13 @@
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next 16 adivina solo cual es la raiz del proyecto, y si encuentra un
+  // package-lock.json suelto en una carpeta superior se lia y avisa. Se lo
+  // decimos aqui para que no dependa de lo que haya fuera del repositorio.
+  turbopack: { root: dirname(fileURLToPath(import.meta.url)) },
+
   async headers() {
     return [
       {
