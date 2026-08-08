@@ -984,7 +984,12 @@ export default function Perfil() {
                 // que hace que la app se comparta, que es lo que hoy más
                 // falta. La tabla decía "—" y ademas nada lo impedía.
                 ["Publicar en comunidad", "Sí", "Sí"],
-                ["Destacados de la semana", "—", "Sí"],
+                // Se retira "Destacados de la semana: — / Sí". Era falso: el
+                // destacado de la comunidad es el post con más "me gusta", sin
+                // mirar el plan, así que una cuenta gratuita también sale. Y
+                // amañarlo para que salgan las de pago volvería la comunidad
+                // un escaparate comprado. Mejor tres ventajas ciertas que
+                // cuatro con una inventada.
               ].map(([que, gratis, prem], i) => (
                 <div key={que} className={`grid grid-cols-[1.4fr_1fr_1fr] items-center px-4 py-3 text-xs ${i > 0 ? "border-t border-line" : ""}`}>
                   <span className="text-muted">{que}</span>
@@ -994,6 +999,16 @@ export default function Perfil() {
               ))}
             </div>
 
+            {/* ⚠️ NO VOLVER A PONER UN BOTON QUE CONCEDA PREMIUM AL PULSARLO.
+                Aqui habia dos, con su precio escrito, que llamaban a
+                setPerfil({ premium: true }) y no cobraban nada: cualquiera se
+                hacia Premium gratis pulsando el boton que decia 4,99 €/mes. Y
+                un boton con un precio que no cobra tampoco es honesto con
+                quien lo pulsa creyendo que se ha suscrito.
+
+                Mientras no haya pasarela de pago (Stripe), esto solo informa.
+                Para probar Premium se cambia la columna `premium` del perfil
+                en la base de datos, no desde la app. */}
             {perfil.premium ? (
               <div className="mt-5 space-y-2">
                 <p className="text-center text-sm text-muted">Ya eres Premium {t.motif}</p>
@@ -1008,25 +1023,15 @@ export default function Perfil() {
                 </button>
               </div>
             ) : (
-              <div className="mt-5 space-y-2">
-                <button
-                  onClick={() => {
-                    setPerfil({ premium: true });
-                    setPanel(null);
-                  }}
-                  className="btn-primary"
-                >
-                  Premium mensual — 4,99 €/mes
-                </button>
-                <button
-                  onClick={() => {
-                    setPerfil({ premium: true });
-                    setPanel(null);
-                  }}
-                  className="w-full rounded-2xl border border-accent bg-accentSoft py-3.5 text-sm"
-                >
-                  Premium anual — 39,99 €/año <span className="text-muted">(2 meses gratis)</span>
-                </button>
+              <div className="mt-5">
+                <div className="rounded-2xl border border-line bg-accentSoft px-4 py-4 text-center">
+                  <p className="text-sm">Premium todavía no está disponible.</p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted">
+                    Estamos terminándolo. Cuando puedas suscribirte costará
+                    4,99 €/mes o 39,99 €/año, y te avisaremos dentro de la app.
+                    Hasta entonces no se te cobrará nada.
+                  </p>
+                </div>
               </div>
             )}
           </div>
