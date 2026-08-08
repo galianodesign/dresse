@@ -14,7 +14,22 @@ import { CATEGORIAS, Categoria, ESTILOS, Prenda, Look, diasSinUsar } from "@/lib
 import { t, ClaveTexto } from "@/lib/i18n";
 import { comprimirADataUrl } from "@/lib/imagen";
 
-const LIMITE_GRATIS = 20;
+/**
+ * Prendas que caben en el plan gratuito.
+ *
+ * Estaba en 20 y era demasiado poco: una encuesta a las seguidoras de Dressé
+ * dio que nadie tiene menos de 20 prendas y que la mitad pasa de 50, así que
+ * el tope anterior no limitaba, impedía terminar. Y un armario a medias es
+ * peor que ninguno: Madame Dressé propone conjuntos ignorando la mitad de la
+ * ropa, y la usuaria concluye que la app no acierta, no que le falte sitio.
+ *
+ * 40 deja que casi todo el mundo acabe de digitalizar su armario. Se puede
+ * subir sin problema si se ve que la gente se atasca aquí; bajarlo, en cambio,
+ * sería quitarle algo a quien ya lo tiene, así que se empieza prudente.
+ *
+ * El peaje de verdad no es este: son las consultas a Madame Dressé.
+ */
+const LIMITE_GRATIS = 40;
 const DIAS_OLVIDO = 30;
 
 export default function Armario() {
@@ -554,20 +569,22 @@ export default function Armario() {
             className="sheet w-full rounded-t-[28px] bg-surface p-6 pb-10"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Llegar al tope tiene que sentirse como haber terminado, no
+                como un portazo. Quien llega aquí ha fotografiado 40 prendas
+                una a una: lo que toca es reconocérselo, no regañarla. */}
             <CabeceraPanel
-              titulo="Tu armario está lleno"
+              titulo="Ya tienes 40 prendas"
               onCerrar={() => setLimiteAbierto(false)}
             >
               <p className="mt-1 text-sm leading-relaxed text-muted">
-                El plan gratuito guarda hasta {LIMITE_GRATIS} prendas y ya las
-                tienes todas.
+                Tu armario está prácticamente completo. No está nada mal.
               </p>
             </CabeceraPanel>
 
             <p className="text-sm leading-relaxed text-muted">
-              Premium quitará ese límite, pero todavía no está disponible.
-              Mientras tanto, puedes hacer sitio quitando alguna prenda que ya
-              no uses: toca una y elige “Eliminar prenda”.
+              El plan gratuito llega hasta aquí. Premium te dejará añadir las
+              que te falten, pero todavía no está disponible: mientras tanto
+              puedes hacer sitio quitando alguna que ya no te pongas.
             </p>
 
             <button

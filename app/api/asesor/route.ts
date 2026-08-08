@@ -78,15 +78,22 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { modo, imagen, armario, estilo } = body;
 
-  // Segunda barrera: una cuenta legítima tampoco puede vaciar el saldo. El
-  // tope diario es muy superior a un uso normal, así que solo lo nota quien
-  // esté abusando.
-  const dentroDeCupo = await consumirCupo(req);
-  if (!dentroDeCupo) {
+  /**
+   * Segunda barrera, y a la vez el límite del plan gratuito.
+   *
+   * Catalogar prendas es libre: es el trabajo que llena el armario. Lo que se
+   * mide son las consultas a la estilista, que es donde está el valor que se
+   * renueva cada mes y el coste que se paga cada vez.
+   */
+  const cupo = await consumirCupo(req, modo === "catalogar" ? "catalogar" : "asesorar");
+  if (!cupo.ok) {
     return NextResponse.json(
       {
         error:
-          "Has hecho muchas consultas hoy. Madame Dressé vuelve a estar disponible mañana.",
+          modo === "catalogar"
+            ? "Has añadido muchísimas prendas hoy. Prueba de nuevo mañana."
+            : `Has usado tus ${cupo.tope} consultas de este mes. Con Premium son ilimitadas, y el mes que viene vuelves a tener las tuyas.`,
+        cupoAgotado: true,
       },
       { status: 429 }
     );

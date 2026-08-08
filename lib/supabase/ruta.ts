@@ -44,27 +44,45 @@ export async function usuarioDeLaPeticion(req: NextRequest): Promise<string | nu
   }
 }
 
+export interface Cupo {
+  ok: boolean;
+  usadas?: number;
+  tope?: number;
+  restantes?: number;
+  premium?: boolean;
+}
+
 /**
- * Suma una consulta al cupo diario y dice si sigue dentro.
+ * Suma un uso de IA y devuelve cómo ha quedado el cupo.
  *
- * Segunda barrera después de exigir sesión: que una cuenta legítima tampoco
- * pueda vaciar el saldo de Anthropic. El tope está muy por encima de un uso
- * normal, así que solo lo nota quien esté abusando.
+ * Hay dos cupos distintos, y la diferencia es una decisión de negocio:
+ *
+ *  - "catalogar": libre. Fotografiar la ropa es el trabajo que hace la
+ *    clienta y lo que la ata a la app; cobrarle por terminarlo sería al
+ *    revés. Solo lleva un tope diario alto contra abusos.
+ *  - "asesorar": 5 al mes en el plan gratuito, sin límite en Premium. Es el
+ *    valor que se renueva cada mes, y lo único que cuesta dinero cada vez.
  *
  * Si la comprobación falla por un problema de la base de datos se deja pasar:
- * dejar sin asesor a todo el mundo porque una consulta de contabilidad falló
- * sería peor que el riesgo que evita.
+ * dejar sin asesora a todo el mundo porque falló una consulta de contabilidad
+ * sería peor que el riesgo que evita. Por eso hay que verificar que el
+ * contador sube de verdad y no fiarse de que la respuesta sea correcta.
  */
-export async function consumirCupo(req: NextRequest): Promise<boolean> {
+export async function consumirCupo(
+  req: NextRequest,
+  concepto: "catalogar" | "asesorar"
+): Promise<Cupo> {
   try {
-    const { data, error } = await clienteDeLaPeticion(req).rpc("consumir_cupo_asesor");
+    const { data, error } = await clienteDeLaPeticion(req).rpc("consumir_cupo_asesor", {
+      concepto_: concepto,
+    });
     if (error) {
       console.error("[Dressé] no se pudo comprobar el cupo:", error.message);
-      return true;
+      return { ok: true };
     }
-    return data !== false;
+    return (data as Cupo) ?? { ok: true };
   } catch (e) {
     console.error("[Dressé] no se pudo comprobar el cupo:", e);
-    return true;
+    return { ok: true };
   }
 }

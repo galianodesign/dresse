@@ -973,11 +973,17 @@ export default function Perfil() {
 
             <div className="card mt-6 overflow-hidden">
               {[
-                ["Prendas en el armario", "20", "Ilimitadas"],
-                ["Consultas al asesor", "Limitadas", "Ilimitadas"],
+                // "Limitadas" no decía nada y además no era verdad: no había
+                // ningún límite implementado. Ahora son 5 al mes y se dice.
+                ["Prendas en el armario", "40", "Ilimitadas"],
+                ["Consultas a Madame Dressé", "5 al mes", "Ilimitadas"],
                 ["Temas visuales", "2", "6 + detalles únicos"],
                 ["Looks guardados", "Sí", "Sí"],
-                ["Publicar en comunidad", "—", "Sí"],
+                // Publicar NO se cobra, y no es un descuido: una comunidad
+                // donde solo publica quien paga no es una comunidad. Es lo
+                // que hace que la app se comparta, que es lo que hoy más
+                // falta. La tabla decía "—" y ademas nada lo impedía.
+                ["Publicar en comunidad", "Sí", "Sí"],
                 ["Destacados de la semana", "—", "Sí"],
               ].map(([que, gratis, prem], i) => (
                 <div key={que} className={`grid grid-cols-[1.4fr_1fr_1fr] items-center px-4 py-3 text-xs ${i > 0 ? "border-t border-line" : ""}`}>
